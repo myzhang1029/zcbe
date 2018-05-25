@@ -4,8 +4,8 @@
 build-name = "name"
 prefix = "prefix"
 env = [
-[CC, "gcc"],
-[CFLAGS, "-W -Wall"],
-[LDFLAGS, "-lm"],
-[env-name, "env-val"],
+["CC", "gcc"],
+["CFLAGS", "-W -Wall"],
+["LDFLAGS", "-lm"],
+["env-name", "env-val"],
 ]
