@@ -1,0 +1,26 @@
+# Config file for a project
+# Placed in $SRCROOT/zcbe/conf.toml
+[package]
+name = pkg-nm
+ver = pkg-ver
+
+[deps] # Dependencies
+build = [
+bud1, # Build-time dependencies
+bud2,
+]
+
+req = [
+req1, # Required packages
+req2,
+]
+
+rec = [
+rec1, # Recommended packages
+rec2,
+]
+
+opt = [
+opt1, # Optional packages
+opt2,
+]

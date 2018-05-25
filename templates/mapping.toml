@@ -1,0 +1,7 @@
+# Map for proj name and proj working dir
+
+[mapping]
+gcc = "devel/gcc-7.2.0"
+libgit2 = "lib/libgit2"
+name = "directory/from/this/file"
+

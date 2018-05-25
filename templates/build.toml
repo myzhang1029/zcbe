@@ -1,0 +1,11 @@
+# Build config file
+# Placed in currnt working directory of zcbe
+[info]
+build-name = "name"
+prefix = "prefix"
+env = [
+[CC, "gcc"],
+[CFLAGS, "-W -Wall"],
+[LDFLAGS, "-lm"],
+[env-name, "env-val"],
+]
