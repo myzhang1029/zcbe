@@ -3,6 +3,7 @@
 [info]
 build-name = "name"
 prefix = "prefix"
+hostname = "i486-linux-gnu"
 env = [
 ["CC", "gcc"],
 ["CFLAGS", "-W -Wall"],
