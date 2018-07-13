@@ -96,6 +96,7 @@ int try_build_proj(char *proj_name)
 	}
 	toml_free(mapping);
 	chdir(proj_dir);
+	free(proj_dir);
 	solve_dependencies_now();
 	if (build_now() != 0)
 	{
