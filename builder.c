@@ -31,7 +31,7 @@ int build_now(void)
 	int status = 0;
 	pid = fork();
 	if (pid == 0)
-		execlp("sh", "sh", "-e", "./zcbe/build.sh");
+		execlp("sh", "sh", "-e", "./zcbe/build.sh", NULL);
 	else if (pid > 0)
 		waitpid(pid, &status, 0);
 	else
