@@ -62,7 +62,7 @@ int try_build_proj(char *proj_name)
 		fprintf(stderr, "try_build_proj: circular dependency detected while processing %s\n", proj_name);
 		return 1;
 	}
-	/* get project name to project dir mapping */
+	/* get project-name-to-project-dir mapping */
 	if ((mapping_fp = fopen("mapping.toml", "r")) == NULL)
 	{
 		perror("fopen: mapping.toml");
@@ -78,7 +78,7 @@ int try_build_proj(char *proj_name)
 	/* get the [mapping] table */
 	if ((cur_table = toml_table_in(mapping, "mapping")) == NULL)
 	{
-		fprintf(stderr, "try_build_proj: invalid mapping.toml found\n");
+		fprintf(stderr, "try_build_proj: invalid mapping.toml found: no mapping table\n");
 		toml_free(mapping);
 		return 4;
 	}
@@ -96,7 +96,7 @@ int try_build_proj(char *proj_name)
 	}
 	toml_free(mapping);
 	chdir(proj_dir);
-	check_for_dependencies_now();
+	solve_dependencies_now();
 	if (build_now() != 0)
 	{
 		fprintf(stderr, "build_now returned with a non-zero value\n");
