@@ -17,19 +17,22 @@
 */
 
 #include <stdio.h>
+#include <stdlib.h>
+#include <stdint.h>/* toml needs this */
 #include "toml.h"
+#include "deps.h"
 
 int solve_dependencies_now(void)
 {
 	FILE *conf_fp;
 	int i, j;
-	toml_table_t conf;
+	toml_table_t *conf;
 	toml_table_t *cur_table;
 	toml_array_t *cur_array;
 	const char *raw;
 	char *cur_dep_name;
 	char errbuf[200];
-	char possible_types[][] = {
+	char *possible_types[] = {
 		"req",
 		"rec",
 		"opt"
@@ -87,6 +90,8 @@ int solve_dependencies_now(void)
 			continue;
 		for (int j = 0;; ++j)
 		{
-			/* solve it */
+			/* solve them with try_build_proj */
 		}
 	}
+	return 0;
+}

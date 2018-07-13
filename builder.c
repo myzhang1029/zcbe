@@ -22,6 +22,8 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include "toml.h"
+#include "builder.h"
+#include "deps.h"
 
 int build_now(void)
 {
