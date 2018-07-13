@@ -104,6 +104,6 @@ int try_build_proj(char *proj_name)
 		return 6;
 	}
 	/* Successfully built proj */
-	push_done_dep(proj_name);
+	dep_is_met(proj_name, 1);
 	return 0;
 }
