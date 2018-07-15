@@ -16,14 +16,14 @@
    limitations under the License.
 */
 
+#include "builder.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/wait.h>
-#include "toml.h"
-#include "builder.h"
 #include "deps.h"
+#include "toml.h"
 
 int build_now(void)
 {

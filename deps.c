@@ -16,11 +16,12 @@
    limitations under the License.
 */
 
+#include "deps.h"
+#include <stdint.h>/* toml needs this */
 #include <stdio.h>
 #include <stdlib.h>
-#include <stdint.h>/* toml needs this */
+#include "builder.h"
 #include "toml.h"
-#include "deps.h"
 
 int solve_dependencies_now(void)
 {
@@ -32,11 +33,7 @@ int solve_dependencies_now(void)
 	const char *raw;
 	char *cur_dep_name;
 	char errbuf[200];
-	char *possible_types[] = {
-		"req",
-		"rec",
-		"opt"
-	};
+	char *possible_types[] = {"req", "rec", "opt"};
 	if ((conf_fp = fopen("zcbe/conf.toml", "r")) == NULL)
 	{
 		perror("fopen: conf.toml");
@@ -58,21 +55,21 @@ int solve_dependencies_now(void)
 	if ((cur_array = toml_array_in(cur_table, "build")))
 	{
 		i = 0;
-		while((raw = toml_raw_at(cur_array, i++)))
+		while ((raw = toml_raw_at(cur_array, i++)))
 		{
-			if(toml_rtos(raw, &cur_dep_name))
+			if (toml_rtos(raw, &cur_dep_name))
 			{
 				fprintf(stderr, "solve_dependencies_now: toml_rtos failed\n");
 				toml_free(conf);
 				return 3;
 			}
-			if(is_dep_met(cur_dep_name, 0))
+			if (is_dep_met(cur_dep_name, 0))
 			{
 				free(cur_dep_name);
 				continue;
 			}
 			printf("Is \"%s\" installed on your computer [y/n]?", cur_dep_name);
-			if(getchar() != 'y')
+			if (getchar() != 'y')
 			{
 				printf("'No' selected\n");
 				fprintf(stderr, "solve_dependencies_now: stopping due to unmet build tool\n");
@@ -81,16 +78,35 @@ int solve_dependencies_now(void)
 				return 3;
 			}
 			else
-				dep_is_met(cur_dep_name, 0);/* cache this */
+				dep_is_met(cur_dep_name, 0); /* cache this */
 		}
 	}
 	for (int i = 0; i < 3; ++i)
 	{
 		if ((cur_array = toml_array_in(cur_table, possible_types[i])) == NULL)
 			continue;
-		for (int j = 0;; ++j)
+		j = 0;
+		while ((raw = toml_raw_at(cur_array, j++)))
 		{
 			/* solve them with try_build_proj */
+			if (toml_rtos(raw, &cur_dep_name))
+			{
+				fprintf(stderr, "solve_dependencies_now: toml_rtos failed\n");
+				toml_free(conf);
+				return 3;
+			}
+			if (is_dep_met(cur_dep_name, 1))
+			{
+				free(cur_dep_name);
+				continue;
+			}
+			if (try_build_proj(cur_dep_name) != 0)
+			{
+				fprintf(stderr, "try_build_proj returned non-zero\n");
+				fprintf(stderr, "solve_dependencies_now: stopping due to unmet dependency %s",
+					cur_dep_name);
+				return 4;
+			}
 		}
 	}
 	return 0;
