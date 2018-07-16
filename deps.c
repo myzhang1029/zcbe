@@ -20,9 +20,84 @@
 #include <stdint.h>/* toml needs this */
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include "builder.h"
 #include "toml.h"
 
+int goodstrcmp(char *line, char *name)
+{
+	int n;
+	while ((n = (*line++) - (*name++)) == 0)
+		if (*line == 0 || *name == 0)
+			return 0;
+	return n;
+}
+int is_dep_met(char *name, int type)
+{
+	FILE *fp;
+	char *pathname;
+	char *env;
+	char line[36];
+	long filesize, oldfs, base = 0;
+	int cmpdiff;
+	if (type == 0) /* build */
+		env = getenv("ZCTOP");
+	else /* type == 1 -- host */
+		env = getenv("ZCPREF");
+	pathname = malloc(sizeof(char) * (strlen(env) + 10));
+	if (pathname == NULL)
+	{
+		perror("is_dep_met: malloc");
+		return 0;
+	}
+	strcpy(pathname, env);
+	strcat(pathname, "/.metdeps");
+	fp = fopen(pathname, "a+");
+	if (fp == NULL)
+	{
+		perror("is_dep_met: fopen");
+		free(pathname);
+		return 0;
+	}
+	/* size of the file */
+	fseek(fp, 0, SEEK_END);
+	filesize = ftell(fp);
+	while (1) /* bsearch the depname */
+	{
+		oldfs = filesize;
+		filesize /= 2;
+		if (oldfs == filesize)
+		{
+			/* cannot move anymore */
+			fclose(fp);
+			free(pathname);
+			return 0;
+		}
+		fseek(fp, base + filesize, SEEK_SET);
+		if (fgets(line, 36, fp) == NULL)
+		{
+			if (ferror(fp))
+				perror("is_dep_met: fgets");
+			fclose(fp);
+			free(pathname);
+			return 0;
+		}
+		/* good, we found it */
+		if ((cmpdiff = goodstrcmp(line, name)) == 0)
+		{
+			fclose(fp);
+			free(pathname);
+			return 1;
+		}
+		else if (cmpdiff < 0)
+			continue;
+		else /* cmpdiff > 0 */
+			base = filesize;
+	}
+}
+
+int dep_is_met(char *name, int type) { return 0; }
+int check_for_circular(char *cur_proj_name) { return 0; }
 int solve_dependencies_now(void)
 {
 	FILE *conf_fp;
