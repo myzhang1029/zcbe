@@ -18,7 +18,7 @@
 
 int solve_dependencies_now(void);
 /* type: 1 for normal(target) dependencies; 0 for build dependencies */
-int is_dep_met(char *name, int type);
-int dep_is_met(char *name, int type);
+int is_dep_met(const char *name, int type);
+int dep_is_met(const char *name, int type);
 /* recorgnize and check for a ciecular dependency(which can't be handled) */
 int check_for_circular(char *name);

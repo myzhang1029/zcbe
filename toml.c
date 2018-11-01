@@ -23,7 +23,6 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 #define _POSIX_C_SOURCE 200809L
-#include "toml.h"
 #include <assert.h>
 #include <ctype.h>
 #include <errno.h>
@@ -32,6 +31,7 @@ SOFTWARE.
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "toml.h"
 
 #ifdef _WIN32
 char *strndup(const char *s, size_t n)
