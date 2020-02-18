@@ -1,5 +1,5 @@
 # Build config file
-# Placed in currnt working directory of zcbe
+# Placed in current working directory of zcbe
 [info]
 build-name = "name"
 prefix = "prefix"

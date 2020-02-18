@@ -1,6 +1,7 @@
-# zcbe.py - The Z Cross Build Environment
+#!/usr/bin/env python3
+# zcb/exceptions.py - ZCBE Exceptions
 #
-# Copyright 2019 Zhang Maiyun
+# Copyright 2019-2020 Zhang Maiyun
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,11 +15,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from pathlib import Path
-import subprocess as sp
-import sys
-import os
-import argparse
-import toml
+class ConfigError(Exception):
+    pass
 
+class BuildTOMLError(ConfigError):
+    pass
+class MappingTOMLError(ConfigError):
+    pass
+class ProjectTOMLError(ConfigError):
+    pass
 
