@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # setup.py - easy_install script for zcbe
 #
-# Copyright 2019 Zhang Maiyun
+# Copyright 2019-2020 Zhang Maiyun
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,7 +19,7 @@ from setuptools import setup
 
 setup(
     name="zcbe",
-    version="0.0.1",
+    version="0.0.2",
     description="The Z Cross Build Environment",
     long_description=open("README.md").read(),
     long_description_content_type="text/markdown",
