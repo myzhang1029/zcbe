@@ -1,4 +1,4 @@
-# zcbe/exceptions.py - ZCBE Exceptions
+# zcbe/exceptions.py
 #
 # Copyright 2019-2020 Zhang Maiyun
 #
@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""ZCBE exceptions."""
 
 class ConfigError(Exception):
     pass
