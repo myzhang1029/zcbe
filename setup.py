@@ -19,7 +19,7 @@ from setuptools import setup
 
 setup(
     name="zcbe",
-    version="0.0.3",
+    version="0.1.0",
     description="The Z Cross Build Environment",
     long_description=open("README.md").read(),
     long_description_content_type="text/markdown",
@@ -27,7 +27,7 @@ setup(
     author_email="myzhang1029@hotmail.com",
     url="https://github.com/myzhang1029/zcbe",
     classifiers=[
-        "Development Status :: 1 - Planning",
+        "Development Status :: 3 - Alpha",
         "Environment :: Console",
         "Intended Audience :: Information Technology",
         "License :: OSI Approved :: Apache Software License",

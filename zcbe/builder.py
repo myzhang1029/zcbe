@@ -18,6 +18,8 @@
 
 import toml
 import os
+import time
+import subprocess as sp
 from pathlib import Path
 from typing import Dict, List
 from .dep_manager import DepManager
@@ -89,7 +91,6 @@ class Build:
         if self.dep_manager.check("req", proj_name):
             print(f"Requirement already satisfied: {proj_name}")
             return 0
-        print(f"Entering project {proj_name}")
         proj = self.get_proj(proj_name)
         proj.build()
 
@@ -109,6 +110,8 @@ class Project:
                  warner: ZCBEWarner
                  ):
         self.proj_dir = Path(proj_dir)
+        if not self.proj_dir.is_dir():
+            raise MappingTOMLError(f"project {proj_name} not found at {proj_dir}")
         self.proj_name = proj_name
         self.builder = builder
         self.warner = warner
@@ -143,9 +146,13 @@ class Project:
     def solve_deps(self, depdict: Dict[str, List[str]]):
         """Solve dependencies."""
         for table in depdict:
-            for item in depdict[table]:
-                if not self.builder.dep_manager.check(table, item):
-                    pass  # TODO: build this, circular dep. check
+            if table == "build":
+                for item in depdict[table]:
+                    self.builder.dep_manager.check(table, item)
+            else:
+                for item in depdict[table]:
+                    # TODO: circular dep. check
+                    self.builder.build(item)
 
     def parse_conf_toml(self):
         """Load the conf toml and set envs."""
@@ -153,6 +160,11 @@ class Project:
         pkg = cdict["package"]
         try:
             self.package_name = pkg["name"]
+            if self.package_name != self.proj_name:
+                self.warner.warn(
+                    "name-mismatch",
+                    "{self.package_name} mismatches with {self.proj_name}"
+                )
             self.version = pkg["ver"]
         except KeyError as e:
             raise ProjectTOMLError(f"Expected key `package.{e}' not found")
@@ -165,9 +177,45 @@ class Project:
         else:
             self.envdict = {}
 
+    def acquire_lock(self):
+        """Acquires project build lock."""
+        lockfile = self.proj_dir / "zcbe.lock"
+        while lockfile.exists():
+            print(f"The lockfile for project {self.proj_name} exists.")
+            print(
+                "If you're running multiple builds at the same time,",
+                "don't worry and we'll automatically proceed."
+            )
+            print(
+                "Otherwise please kill this process and remove the lock",
+                lockfile,
+                "by yourself. After that, check if everything is OK."
+            )
+            time.sleep(10)
+        lockfile.touch()
+
+    def release_lock(self):
+        """Releases project build lock."""
+        lockfile = self.proj_dir / "zcbe.lock"
+        if lockfile.exists():
+            lockfile.unlink()
+
     def build(self):
         """Solve dependencies and build the project."""
         self.solve_deps(self.depdict)
+        # Not infecting environ of other projects
         for item in self.envdict:
             self.environ[item[0]] = item[1]
-        # TODO: create lockfile, build, write recipe
+        self.acquire_lock()
+        print(f"Entering project {self.proj_name}")
+        buildsh = self.locate_conf_toml().parent / "build.sh"
+        os.chdir(self.proj_dir)
+        complete = sp.run(["sh", "-e", buildsh], env=self.environ)
+        print(f"Leaving project {self.proj_name}")
+        self.release_lock()
+        if complete.returncode:
+            # Build failed
+            # Lock is still released as no one is writing to that directory
+            raise sp.CalledProcessError(complete.returncode, complete.args)
+        # write recipe
+        self.builder.dep_manager.add("req", self.proj_name)
