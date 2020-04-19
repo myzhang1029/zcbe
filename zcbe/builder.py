@@ -94,7 +94,6 @@ class Build:
         proj.build()
 
 
-
 class Project:
     """Represents a project (see concepts).
     proj_dir is the directory to the project
@@ -146,7 +145,7 @@ class Project:
         for table in depdict:
             for item in depdict[table]:
                 if not self.builder.dep_manager.check(table, item):
-                    pass # TODO: build this, circular dep. check
+                    pass  # TODO: build this, circular dep. check
 
     def parse_conf_toml(self):
         """Load the conf toml and set envs."""
