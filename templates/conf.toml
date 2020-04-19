@@ -15,12 +15,5 @@ req = [
 "req2",
 ]
 
-rec = [
-"rec1", # Recommended packages
-"rec2",
-]
-
-opt = [
-"opt1", # Optional packages
-"opt2",
-]
+[env]
+POSIXLY_CORRECT = "1"
