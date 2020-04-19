@@ -91,6 +91,7 @@ class Build:
             return 0
         print(f"Entering project {proj_name}")
         proj = self.get_proj(proj_name)
+        proj.build()
 
 
 
@@ -158,7 +159,17 @@ class Project:
         except KeyError as e:
             raise ProjectTOMLError(f"Expected key `package.{e}' not found")
         if "deps" in cdict:
-            self.solve_deps(cdict["deps"])
+            self.depdict = cdict["deps"]
+        else:
+            self.depdict = {}
         if "env" in cdict:
-            for item in cdict["env"]:
-                self.environ[item[0]] = item[1]
+            self.envdict = cdict["env"]
+        else:
+            self.envdict = {}
+
+    def build(self):
+        """Solve dependencies and build the project."""
+        self.solve_deps(self.depdict)
+        for item in self.envdict:
+            self.environ[item[0]] = item[1]
+        # TODO: create lockfile, build, write recipe
