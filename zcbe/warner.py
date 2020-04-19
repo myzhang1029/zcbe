@@ -45,16 +45,26 @@ class ZCBEWarner:
         """Silence all warnings. (-w)"""
         self.silent = True
 
+    def shouldwarn(self, name: str):
+        """Determine whether a warnings should be shown."""
+        if (self.options["all"] or self.options[name]) and not self.silent:
+            return True
+        return False
+
+    def werror(self):
+        """Exit if -Werror is supplied."""
+        if self.options["error"]:
+            print(f"Error: exiting [-Werror]", file=sys.stderr)
+            sys.exit(2)
+
     def warn(self, name: str, s: str):
-        """Issue a warnings.
+        """Issue a warning.
         name: the registered name of this warning
         s: the warning string
         """
         title = "Warning"
         if self.options["error"]:
             title = "Error"
-        if (self.options["all"] or self.options[name]) and not self.silent:
+        if self.shouldwarn(name):
             print(f"{title}: {s} [-W{name}]", file=sys.stderr)
-            if self.options["error"]:
-                print(f"Error: exiting [-Werror]", file=sys.stderr)
-                sys.exit(2)
+            self.werror()
