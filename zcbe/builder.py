@@ -1,4 +1,4 @@
-# zcbe/build.py
+# zcbe/builder.py
 #
 # Copyright 2019-2020 Zhang Maiyun
 #
@@ -17,6 +17,7 @@
 """ZCBE builder."""
 
 import toml
+import os
 from pathlib import Path
 from .warner import ZCBEWarner
 from .exceptions import *
@@ -24,7 +25,7 @@ from .exceptions import *
 class Build:
     """Represents a build (see concepts)."""
     def __init__(self, build_dir: str, warner: ZCBEWarner):
-        self.build_dir = Path(build_dir)
+        self.build_dir = Path(build_dir).absolute()
         self.build_toml = self.build_dir / "build.toml"
         if self.build_toml.exists():
             self.parse_build_toml()
@@ -38,16 +39,19 @@ class Build:
         return
 
     def parse_build_toml(self):
-        """Load the build toml (i.e. top level conf)."""
+        """Load the build toml (i.e. top level conf) and set envs."""
         bdict = toml.load(self.build_toml)
         info = bdict["info"]
         try:
             self.build_name = info["build-name"]
             self.prefix = info["prefix"]
-            self.hostname = info["hostname"]
+            os.environ["ZCPREF"] = self.prefix
+            self.host = info["hostname"]
+            os.environ["ZCHOST"] = self.host
+            os.environ["ZCTOP"] = self.build_dir.as_posix()
         except KeyError as e:
             raise BuildTOMLError(f"Expected key `info.{e}' not found")
-        if info.__contains__("env"):
+        if hasattr(info, "env"):
             for item in info["env"]:
                 os.environ[item[0]] = item[1]
 
@@ -60,7 +64,7 @@ class Build:
             raise MappingTOMLError("mapping.toml not found")
         mapping = toml.load(self.mapping_toml)["mapping"]
         try:
-            return mapping[projname]
+            return self.build_dir / mapping[projname]
         except KeyError as e:
             raise MappingTOMLError(f"project {projname} not found") from e
 
@@ -73,3 +77,4 @@ class Build:
     def build(self, proj: str):
         print(f"Entering project {proj}")
         proj_dir = self.get_proj_path(proj)
+        __import__("subprocess").run(["bash"])

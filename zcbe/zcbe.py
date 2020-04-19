@@ -73,14 +73,14 @@ def start():
     ap.add_argument(
         "-W", help="Modify warning behaviour", action=WarningsAction)
     ap.add_argument("-C", "--chdir", type=str, help="Change directory to")
-    ap.add_argument("-p", "--project-directory",
-                    type=str, help="Specify project root")
+    #ap.add_argument("-p", "--project-directory",
+    #                type=str, help="Specify project root")
     ap.add_argument('projects', metavar='PROJ', nargs='+',
-                    help='The projects to build')
+                    help='List of projects to build')
     ns = ap.parse_args()
     if ns.chdir:
         os.chdir(ns.chdir)
-    main(ns.project_directory or ".", ns.projects)
+    main(".", ns.projects)
 
 
 def main(projdir, to_build):
