@@ -145,7 +145,6 @@ class Project:
         """Solve dependencies."""
         for table in depdict:
             for item in depdict[table]:
-                print(table, item)
                 if not self.builder.dep_manager.check(table, item):
                     pass # TODO: build this, circular dep. check
 
