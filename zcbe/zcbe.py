@@ -20,18 +20,13 @@ Concepts:
     a projects is just a program/package
 """
 
-import subprocess as sp
-import sys
 import os
 import argparse
-from .exceptions import *
 from .warner import ZCBEWarner
 from .builder import Build
-from typing import Dict, Set
 
 all_warnings = {
     "name-mismatch": "The project's name specified in conf.toml mismatches with that in mapping.toml",
-    "test": "Test warnings",
     "generic": "Warnings about ZCBE itself",
     "error": "Error all warnings",
     "all": "Show all warnings",

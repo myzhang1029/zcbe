@@ -81,7 +81,6 @@ class Build:
         projname: The name of the project
         """
         proj_path = self.get_proj_path(proj_name)
-        self.warner.warn("test", "4")
         return Project(proj_path, proj_name, self, self.warner)
 
     def build(self, proj_name: str):
