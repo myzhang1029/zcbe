@@ -31,6 +31,7 @@ from typing import Dict, Set
 
 all_warnings = {
     "name-mismatch": "The project's name specified in conf.toml mismatches with that in mapping.toml",
+    "test": "Test warnings",
     "generic": "Warnings about ZCBE itself",
     "error": "Error all warnings",
     "all": "Show all warnings",
@@ -43,12 +44,12 @@ default_warnings = set((
 
 
 warner = ZCBEWarner()
-warner.load_default(default_warnings)
-
+warner.load_default(set(all_warnings), default_warnings)
 
 
 class WarningsAction(argparse.Action):
     """Argparse action to modify warning behaviour."""
+
     def __init__(self, option_strings, dest, nargs=1, **kwargs):
         super().__init__(option_strings, dest, nargs, **kwargs)
 
@@ -73,11 +74,13 @@ def start():
     ap.add_argument(
         "-W", help="Modify warning behaviour", action=WarningsAction)
     ap.add_argument("-C", "--chdir", type=str, help="Change directory to")
-    #ap.add_argument("-p", "--project-directory",
+    # ap.add_argument("-p", "--project-directory",
     #                type=str, help="Specify project root")
     ap.add_argument('projects', metavar='PROJ', nargs='+',
                     help='List of projects to build')
     ns = ap.parse_args()
+    if ns.w:
+        warner.silence()
     if ns.chdir:
         os.chdir(ns.chdir)
     main(".", ns.projects)

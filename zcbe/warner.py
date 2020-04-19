@@ -19,23 +19,42 @@
 import sys
 from typing import Dict, Set
 
+
 class ZCBEWarner:
     def __init__(self):
         self.options = {}
         self.silent = False
+        self.all = False
 
     def setopts(self, options: Dict[str, bool]):
-        """Control whether a warning is shown."""
+        """Control whether a warning is shown or add warnings."""
         for one in options:
             self.options[one] = options[one]
 
-    def load_default(self, enabled: Set[str]):
+    def load_default(self, all: Set[str] , enabled: Set[str]):
+        """Load default enable/disable settings.
+        all: all warning types
+        enabled: defaultly enabled warnings
+        """
+        for one in all:
+            self.options[one] = False
         for one in enabled:
             self.options[one] = True
 
-    def silent(self):
+    def silence(self):
+        """Silence all warnings. (-w)"""
         self.silent = True
 
     def warn(self, name: str, s: str):
-        if self.options[name] and not self.silent:
-            print(f"Warning: {s} [-W{name}]", file=sys.stderr)
+        """Issue a warnings.
+        name: the registered name of this warning
+        s: the warning string
+        """
+        title = "Warning"
+        if self.options["error"]:
+            title = "Error"
+        if (self.options["all"] or self.options[name]) and not self.silent:
+            print(f"{title}: {s} [-W{name}]", file=sys.stderr)
+            if self.options["error"]:
+                print(f"Error: exiting [-Werror]", file=sys.stderr)
+                sys.exit(2)

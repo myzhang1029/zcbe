@@ -16,6 +16,7 @@
 
 """ZCBE exceptions."""
 
+
 class ConfigError(Exception):
     pass
 

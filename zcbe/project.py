@@ -17,22 +17,46 @@
 """ZCBE projects."""
 
 import toml
+import os
 from pathlib import Path
 from .warner import ZCBEWarner
 from .exceptions import *
 
+
 class Project:
     """Represents a project (see concepts)."""
-    def __init__(self, proj_dir: str, warner: ZCBEWarner):
+
+    def __init__(self, proj_dir: str, proj_name: str, warner: ZCBEWarner):
         self.proj_dir = Path(proj_dir)
-        self.build_toml = self.build_dir / "build.toml"
-        if self.build_toml.exists():
-            self.parse_build_toml()
+        self.proj_name = proj_name
+        self.warner = warner
+        self.conf_toml = self.locate_conf_toml()
+        if self.conf_toml.exists():
+            self.parse_conf_toml()
         else:
-            raise BuildTOMLError("build.toml not found")
+            raise BuildTOMLError("conf.toml not found")
 
     def __enter__(self):
         return self
 
     def __exit__(self, *exc):
         return
+
+    def locate_conf_toml(self):
+        """Try to locate conf.toml.
+        Possible locations:
+        $ZCTOP/zcbe/{name}.zcbe/conf.toml
+        ./zcbe/conf.toml
+        """
+        toplevel_try = Path(os.environ["ZCTOP"]) / \
+            "zcbe"/(self.proj_name+".zcbe")/"conf.toml"
+        if toplevel_try.exists():
+            return toplevel_try
+        local_try = self.proj_dir / "zcbe/conf.toml"
+        if local_try.exists():
+            return local_try
+        raise ProjectTOMLError("conf.toml not found")
+
+    def parse_conf_toml(self):
+        """Load the conf toml and set envs."""
+        pass

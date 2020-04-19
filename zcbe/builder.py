@@ -19,14 +19,18 @@
 import toml
 import os
 from pathlib import Path
+from .project import Project
 from .warner import ZCBEWarner
 from .exceptions import *
 
+
 class Build:
     """Represents a build (see concepts)."""
+
     def __init__(self, build_dir: str, warner: ZCBEWarner):
         self.build_dir = Path(build_dir).absolute()
         self.build_toml = self.build_dir / "build.toml"
+        self.warner = warner
         if self.build_toml.exists():
             self.parse_build_toml()
         else:
@@ -55,7 +59,7 @@ class Build:
             for item in info["env"]:
                 os.environ[item[0]] = item[1]
 
-    def get_proj_path(self, projname: str):
+    def get_proj_path(self, proj_name: str):
         """Get a project's root directory by looking up the mapping toml.
         projname: The name of the projet to look up
         """
@@ -64,17 +68,22 @@ class Build:
             raise MappingTOMLError("mapping.toml not found")
         mapping = toml.load(self.mapping_toml)["mapping"]
         try:
-            return self.build_dir / mapping[projname]
+            return self.build_dir / mapping[proj_name]
         except KeyError as e:
-            raise MappingTOMLError(f"project {projname} not found") from e
+            raise MappingTOMLError(f"project {proj_name} not found") from e
 
-    def get_proj(self, projname: str):
+    def get_proj(self, proj_name: str):
         """Returns a project instance.
         projname: The name of the project
         """
-        pass
+        proj_path = self.get_proj_path(proj_name)
+        self.warner.warn("test", "4")
+        return Project(proj_path, proj_name, self.warner)
 
     def build(self, proj: str):
+        """Build a project.
+        proj: the name of the project
+        """
         print(f"Entering project {proj}")
-        proj_dir = self.get_proj_path(proj)
+        proj = self.get_proj(proj)
         __import__("subprocess").run(["bash"])
