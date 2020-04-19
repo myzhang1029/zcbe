@@ -31,7 +31,7 @@ class ZCBEWarner:
         for one in options:
             self.options[one] = options[one]
 
-    def load_default(self, all: Set[str] , enabled: Set[str]):
+    def load_default(self, all: Set[str], enabled: Set[str]):
         """Load default enable/disable settings.
         all: all warning types
         enabled: defaultly enabled warnings
