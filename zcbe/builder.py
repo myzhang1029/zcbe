@@ -50,11 +50,15 @@ class Build:
         bdict = toml.load(self.build_toml)
         info = bdict["info"]
         try:
+            # Read configuration parameters
             self.build_name = info["build-name"]
             self.prefix = info["prefix"]
+            self.host = info["hostname"]
+            # Make sure prefix exists and is a directory
+            Path(self.prefix).mkdir(parents=True, exist_ok=True)
+            # Initialize dependency and built recorder
             self.dep_manager = DepManager(self.prefix+"/zcbe.recipe")
             os.environ["ZCPREF"] = self.prefix
-            self.host = info["hostname"]
             os.environ["ZCHOST"] = self.host
             os.environ["ZCTOP"] = self.build_dir.as_posix()
         except KeyError as e:
@@ -65,7 +69,7 @@ class Build:
 
     def get_proj_path(self, proj_name: str):
         """Get a project's root directory by looking up the mapping toml.
-        projname: The name of the projet to look up
+        projname: The name of the project to look up
         """
         self.mapping_toml = self.build_dir / "mapping.toml"
         if not self.mapping_toml.exists():
@@ -87,11 +91,18 @@ class Build:
         """Build a project.
         proj_name: the name of the project
         """
+        # This project has already been built
         if self.dep_manager.check("req", proj_name):
             print(f"Requirement already satisfied: {proj_name}")
             return 0
         proj = self.get_proj(proj_name)
-        proj.build()
+        # Circular dependency is handled by Python's recursion limitation
+        try:
+            proj.build()
+        except RecursionError as e:
+            e.args = (
+                f'Circular dependency found near "{proj_name}"',) + e.args[1:]
+            raise
 
 
 class Project:
@@ -110,7 +121,8 @@ class Project:
                  ):
         self.proj_dir = Path(proj_dir)
         if not self.proj_dir.is_dir():
-            raise MappingTOMLError(f"project {proj_name} not found at {proj_dir}")
+            raise MappingTOMLError(
+                f"project {proj_name} not found at {proj_dir}")
         self.proj_name = proj_name
         self.builder = builder
         self.warner = warner
@@ -150,7 +162,6 @@ class Project:
                     self.builder.dep_manager.check(table, item)
             else:
                 for item in depdict[table]:
-                    # TODO: circular dep. check
                     self.builder.build(item)
 
     def parse_conf_toml(self):
@@ -162,7 +173,7 @@ class Project:
             if self.package_name != self.proj_name:
                 self.warner.warn(
                     "name-mismatch",
-                    "{self.package_name} mismatches with {self.proj_name}"
+                    f'"{self.package_name}" mismatches with "{self.proj_name}"'
                 )
             self.version = pkg["ver"]
         except KeyError as e:

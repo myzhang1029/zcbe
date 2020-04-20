@@ -21,6 +21,7 @@ Concepts:
 """
 
 import os
+import sys
 import argparse
 from .warner import ZCBEWarner
 from .builder import Build
@@ -41,6 +42,9 @@ default_warnings = set((
 warner = ZCBEWarner()
 warner.load_default(set(all_warnings), default_warnings)
 
+# Disabling the traceback here so that the error message won't be flooded
+sys.tracebacklimit = 0
+
 
 class WarningsAction(argparse.Action):
     """Argparse action to modify warning behaviour."""
@@ -55,7 +59,7 @@ class WarningsAction(argparse.Action):
             reverse = True
             name = name[3:]
         if not name in all_warnings:
-            warner.warn("generic", f"No such warning `{name}'")
+            warner.warn("generic", f'No such warning "{name}"')
             return
         if reverse:
             warner.setopts({name: False})
