@@ -50,8 +50,7 @@ class DepManager:
         try:
             return depfile[deptype][depname]
         except KeyError:
-            if deptype == "build":
-                if self.ask_build(depname):
-                    self.add("build", depname)
-                    return True
+            if deptype == "build" and self.ask_build(depname):
+                self.add("build", depname)
+                return True
             return False
