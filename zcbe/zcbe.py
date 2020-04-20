@@ -23,6 +23,7 @@ Concepts:
 import os
 import sys
 import argparse
+import asyncio
 from .warner import ZCBEWarner
 from .builder import Build
 
@@ -58,7 +59,7 @@ class WarningsAction(argparse.Action):
         if name[0:3] == "no-":
             reverse = True
             name = name[3:]
-        if not name in all_warnings:
+        if name not in all_warnings:
             warner.warn("generic", f'No such warning "{name}"')
             return
         if reverse:
@@ -73,8 +74,8 @@ def start():
     ap.add_argument(
         "-W", help="Modify warning behaviour", action=WarningsAction)
     ap.add_argument("-C", "--chdir", type=str, help="Change directory to")
-    # ap.add_argument("-p", "--project-directory",
-    #                type=str, help="Specify project root")
+    ap.add_argument("-s", "--silent", type=str,
+                    help="Silence make standard output")
     ap.add_argument('projects', metavar='PROJ', nargs='+',
                     help='List of projects to build')
     ns = ap.parse_args()
@@ -82,10 +83,9 @@ def start():
         warner.silence()
     if ns.chdir:
         os.chdir(ns.chdir)
-    main(".", ns.projects)
+    asyncio.run(main(".", ns.projects, ns.silent))
 
 
-def main(projdir, to_build):
-    with Build(projdir, warner) as proj:
-        for one in to_build:
-            proj.build(one)
+async def main(projdir, to_build, if_silent):
+    with Build(projdir, warner, if_silent=if_silent) as proj:
+        await asyncio.gather(*(proj.build(one) for one in to_build))

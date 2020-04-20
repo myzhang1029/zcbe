@@ -19,7 +19,7 @@ from setuptools import setup
 
 setup(
     name="zcbe",
-    version="0.1.3",
+    version="0.2.0",
     description="The Z Cross Build Environment",
     long_description=open("README.md").read(),
     long_description_content_type="text/markdown",
@@ -33,7 +33,7 @@ setup(
         "License :: OSI Approved :: Apache Software License",
         "Operating System :: OS Independent",
         "Programming Language :: Python :: 3",
-        ],
+    ],
     python_requires='>=3.5',
     packages=["zcbe"],
     install_requires=["toml"],

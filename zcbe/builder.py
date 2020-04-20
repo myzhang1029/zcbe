@@ -19,7 +19,7 @@
 import toml
 import os
 import time
-import subprocess as sp
+import asyncio
 from pathlib import Path
 from typing import Dict, List
 from .dep_manager import DepManager
@@ -28,12 +28,22 @@ from .exceptions import *
 
 
 class Build:
-    """Represents a build (see concepts)."""
+    """Represents a build (see concepts).
+    build_dir: Directory of the build root
+    warner: ZCBE warner
+    if_silent: whether to silence make stdout
+    """
 
-    def __init__(self, build_dir: str, warner: ZCBEWarner):
+    def __init__(
+        self,
+        build_dir: str,
+        warner: ZCBEWarner,
+        if_silent: bool = False
+    ):
         self.build_dir = Path(build_dir).absolute()
         self.build_toml = self.build_dir / "build.toml"
         self.warner = warner
+        self.if_silent = if_silent
         if self.build_toml.exists():
             self.parse_build_toml()
         else:
@@ -85,9 +95,9 @@ class Build:
         projname: The name of the project
         """
         proj_path = self.get_proj_path(proj_name)
-        return Project(proj_path, proj_name, self, self.warner)
+        return Project(proj_path, proj_name, self)
 
-    def build(self, proj_name: str):
+    async def build(self, proj_name: str):
         """Build a project.
         proj_name: the name of the project
         """
@@ -98,7 +108,7 @@ class Build:
         proj = self.get_proj(proj_name)
         # Circular dependency is handled by Python's recursion limitation
         try:
-            proj.build()
+            await proj.build()
         except RecursionError as e:
             e.args = (
                 f'Circular dependency found near "{proj_name}"',) + e.args[1:]
@@ -109,15 +119,13 @@ class Project:
     """Represents a project (see concepts).
     proj_dir is the directory to the project
     proj_name is the name in mapping.toml of the project
-    builder is used to resolve dependencies
-    warner is the ZCBEWarner to be used
+    builder is used to resolve dependencies, get warner and get if_silent
     """
 
     def __init__(self,
                  proj_dir: str,
                  proj_name: str,
-                 builder: Build,
-                 warner: ZCBEWarner
+                 builder: Build
                  ):
         self.proj_dir = Path(proj_dir)
         if not self.proj_dir.is_dir():
@@ -125,7 +133,8 @@ class Project:
                 f"project {proj_name} not found at {proj_dir}")
         self.proj_name = proj_name
         self.builder = builder
-        self.warner = warner
+        self.warner = builder.warner
+        self.if_silent = builder.if_silent
         self.environ = os.environ
         self.conf_toml = self.locate_conf_toml()
         if self.conf_toml.exists():
@@ -154,15 +163,16 @@ class Project:
             return local_try
         raise ProjectTOMLError("conf.toml not found")
 
-    def solve_deps(self, depdict: Dict[str, List[str]]):
+    async def solve_deps(self, depdict: Dict[str, List[str]]):
         """Solve dependencies."""
         for table in depdict:
             if table == "build":
                 for item in depdict[table]:
                     self.builder.dep_manager.check(table, item)
             else:
-                for item in depdict[table]:
-                    self.builder.build(item)
+                await asyncio.gather(
+                    *(self.builder.build(item) for item in depdict[table])
+                )
 
     def parse_conf_toml(self):
         """Load the conf toml and set envs."""
@@ -187,7 +197,7 @@ class Project:
         else:
             self.envdict = {}
 
-    def acquire_lock(self):
+    async def acquire_lock(self):
         """Acquires project build lock."""
         lockfile = self.proj_dir / "zcbe.lock"
         while lockfile.exists():
@@ -204,28 +214,38 @@ class Project:
             time.sleep(10)
         lockfile.touch()
 
-    def release_lock(self):
+    async def release_lock(self):
         """Releases project build lock."""
         lockfile = self.proj_dir / "zcbe.lock"
         if lockfile.exists():
             lockfile.unlink()
 
-    def build(self):
+    async def build(self):
         """Solve dependencies and build the project."""
-        self.solve_deps(self.depdict)
+        await self.solve_deps(self.depdict)
         # Not infecting environ of other projects
         for item in self.envdict:
             self.environ[item[0]] = item[1]
-        self.acquire_lock()
+        await self.acquire_lock()
         print(f"Entering project {self.proj_name}")
         buildsh = self.locate_conf_toml().parent / "build.sh"
+        shpath = buildsh.as_posix()
         os.chdir(self.proj_dir)
-        complete = sp.run(["sh", "-e", buildsh], env=self.environ)
+        process = await asyncio.create_subprocess_exec(
+            "sh",
+            "-e",
+            shpath,
+            stdout=asyncio.subprocess.DEVNULL if self.if_silent else None,
+            env=self.environ,
+        )
+        await process.wait()
         print(f"Leaving project {self.proj_name}")
-        self.release_lock()
-        if complete.returncode:
+        await self.release_lock()
+        if process.returncode:
             # Build failed
             # Lock is still released as no one is writing to that directory
-            raise sp.CalledProcessError(complete.returncode, complete.args)
+            raise SubProcessError(
+                f"Command 'sh -e {shpath}' returned non-zero exit status {process.returncode}."
+            )
         # write recipe
         self.builder.dep_manager.add("req", self.proj_name)

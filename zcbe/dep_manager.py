@@ -17,6 +17,7 @@
 import json
 from pathlib import Path
 
+
 class DepManager:
     def __init__(self, depfile):
         self.depfile = depfile

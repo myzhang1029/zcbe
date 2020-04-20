@@ -17,6 +17,10 @@
 """ZCBE exceptions."""
 
 
+class SubProcessError(Exception):
+    pass
+
+
 class ConfigError(Exception):
     pass
 
