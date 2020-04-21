@@ -201,12 +201,12 @@ class Project:
         """Acquires project build lock."""
         lockfile = self.proj_dir / "zcbe.lock"
         while lockfile.exists():
-            print(f"The lockfile for project {self.proj_name} exists.")
-            print(
+            eprint(f"The lockfile for project {self.proj_name} exists.")
+            eprint(
                 "If you're running multiple builds at the same time,",
                 "don't worry and we'll automatically proceed."
             )
-            print(
+            eprint(
                 "Otherwise please kill this process and remove the lock",
                 lockfile,
                 "by yourself. After that, check if everything is OK."
@@ -245,7 +245,8 @@ class Project:
             # Build failed
             # Lock is still released as no one is writing to that directory
             raise SubProcessError(
-                f"Command 'sh -e {shpath}' returned non-zero exit status {process.returncode}."
+                f"Command 'sh -e {shpath}' returned non-zero exit status"
+                f"{process.returncode}."
             )
         # write recipe
         self.builder.dep_manager.add("req", self.proj_name)

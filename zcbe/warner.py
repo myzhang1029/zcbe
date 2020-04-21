@@ -18,6 +18,7 @@
 
 import sys
 from typing import Dict, Set
+from .exceptions import eprint
 
 
 class ZCBEWarner:
@@ -54,7 +55,7 @@ class ZCBEWarner:
     def werror(self):
         """Exit if -Werror is supplied."""
         if self.options["error"]:
-            print(f"Error: exiting [-Werror]", file=sys.stderr)
+            eprint("Error: exiting [-Werror]")
             sys.exit(2)
 
     def warn(self, name: str, s: str):
@@ -66,5 +67,5 @@ class ZCBEWarner:
         if self.options["error"]:
             title = "Error"
         if self.shouldwarn(name):
-            print(f"{title}: {s} [-W{name}]", file=sys.stderr)
+            eprint(f"{title}: {s} [-W{name}]")
             self.werror()

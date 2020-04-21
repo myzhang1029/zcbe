@@ -14,7 +14,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""ZCBE exceptions."""
+"""ZCBE exceptions and error handling."""
+import sys
 
 
 class SubProcessError(Exception):
@@ -35,3 +36,7 @@ class MappingTOMLError(ConfigError):
 
 class ProjectTOMLError(ConfigError):
     pass
+
+
+def eprint(*args, **kwargs):
+    print(*args, file=sys.stderr, **kwargs)

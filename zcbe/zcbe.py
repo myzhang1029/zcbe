@@ -24,27 +24,49 @@ import os
 import sys
 import argparse
 import asyncio
+from .exceptions import eprint
 from .warner import ZCBEWarner
 from .builder import Build
 
+# All available types of warnings (gcc-like)
 all_warnings = {
-    "name-mismatch": "The project's name specified in conf.toml mismatches with that in mapping.toml",
+    "name-mismatch": "The project's name specified in conf.toml "
+                     "mismatches with that in mapping.toml",
     "generic": "Warnings about ZCBE itself",
     "error": "Error all warnings",
     "all": "Show all warnings",
 }
+
+# Gather help strings for all warnings
+warnings_help = '\n'.join(
+    ["{}: {}".format(x, all_warnings[x]) for x in all_warnings])
 
 default_warnings = set((
     "name-mismatch",
     "generic",
 )) & set(all_warnings)
 
+# Help topics and their help message
+topics = {
+    "topics": "topics: This list of topics\n"
+              "warnings: All available warnings\n",
+    "warnings": warnings_help,
+}
 
-warner = ZCBEWarner()
-warner.load_default(set(all_warnings), default_warnings)
 
-# Disabling the traceback here so that the error message won't be flooded
-sys.tracebacklimit = 0
+class AboutAction(argparse.Action):
+    """Argparse action to show help topics. Exits when finished."""
+
+    def __init__(self, option_strings, dest, nargs=1, **kwargs):
+        super().__init__(option_strings, dest, nargs, **kwargs)
+
+    def __call__(self, parser, namespace, values, option_string=None):
+        name = values[0]
+        try:
+            eprint(topics[name])
+        except KeyError:
+            eprint(f'No such topic {name}, try "topics" for available ones')
+        sys.exit(0)
 
 
 class WarningsAction(argparse.Action):
@@ -71,11 +93,13 @@ class WarningsAction(argparse.Action):
 def start():
     ap = argparse.ArgumentParser(description="The Z Cross Build Environment")
     ap.add_argument("-w", help="Suppress all warnings", action="store_true")
-    ap.add_argument(
-        "-W", help="Modify warning behaviour", action=WarningsAction)
+    ap.add_argument("-W", metavar="WARNING",
+                    help="Modify warning behaviour", action=WarningsAction)
     ap.add_argument("-C", "--chdir", type=str, help="Change directory to")
-    ap.add_argument("-s", "--silent", type=str,
+    ap.add_argument("-s", "--silent", action="store_true",
                     help="Silence make standard output")
+    ap.add_argument("-H", "--about", type=str, action=AboutAction,
+                    help='Help on a topic("topics" for a list of topics)')
     ap.add_argument('projects', metavar='PROJ', nargs='+',
                     help='List of projects to build')
     ns = ap.parse_args()
@@ -87,5 +111,10 @@ def start():
 
 
 async def main(projdir, to_build, if_silent):
+    # Set up the warner to use
+    warner = ZCBEWarner()
+    warner.load_default(set(all_warnings), default_warnings)
+    # Disable the traceback here so it won't flood the error message
+    sys.tracebacklimit = 0
     with Build(projdir, warner, if_silent=if_silent) as proj:
         await asyncio.gather(*(proj.build(one) for one in to_build))
