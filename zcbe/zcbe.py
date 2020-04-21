@@ -63,9 +63,9 @@ class AboutAction(argparse.Action):
     def __call__(self, parser, namespace, values, option_string=None):
         name = values[0]
         try:
-            eprint(topics[name])
+            eprint(topics[name], title="")
         except KeyError:
-            eprint(f'No such topic {name}, try "topics" for available ones')
+            eprint(f'No such topic "{name}", try "topics" for available ones')
         sys.exit(0)
 
 
@@ -117,4 +117,4 @@ async def main(projdir, to_build, if_silent):
     # Disable the traceback here so it won't flood the error message
     sys.tracebacklimit = 0
     with Build(projdir, warner, if_silent=if_silent) as proj:
-        await asyncio.gather(*(proj.build(one) for one in to_build))
+        await proj.build_many(to_build)

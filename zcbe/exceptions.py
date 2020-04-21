@@ -18,7 +18,7 @@
 import sys
 
 
-class SubProcessError(Exception):
+class BuildError(Exception):
     pass
 
 
@@ -38,5 +38,8 @@ class ProjectTOMLError(ConfigError):
     pass
 
 
-def eprint(*args, **kwargs):
+def eprint(*args, title="zcbe: *** Error: ", **kwargs):
+    """Print to stderr, use title as the starting if supplied."""
+    if title:
+        print(title, end='', file=sys.stderr)
     print(*args, file=sys.stderr, **kwargs)

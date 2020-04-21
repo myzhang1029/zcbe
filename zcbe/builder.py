@@ -20,6 +20,7 @@ import toml
 import os
 import time
 import asyncio
+import textwrap
 from pathlib import Path
 from typing import Dict, List
 from .dep_manager import DepManager
@@ -88,7 +89,7 @@ class Build:
         try:
             return self.build_dir / mapping[proj_name]
         except KeyError as e:
-            raise MappingTOMLError(f"project {proj_name} not found") from e
+            raise MappingTOMLError(f'project "{proj_name}" not found') from e
 
     def get_proj(self, proj_name: str):
         """Returns a project instance.
@@ -104,7 +105,7 @@ class Build:
         # This project has already been built
         if self.dep_manager.check("req", proj_name):
             print(f"Requirement already satisfied: {proj_name}")
-            return 0
+            return
         proj = self.get_proj(proj_name)
         # Circular dependency is handled by Python's recursion limitation
         try:
@@ -113,6 +114,21 @@ class Build:
             e.args = (
                 f'Circular dependency found near "{proj_name}"',) + e.args[1:]
             raise
+
+    async def build_many(self, projs: List[str]) -> bool:
+        """Asynchronously build many projects.
+        projs: List of project names to be built
+        Returns whether the operations didn't raise anything.
+        """
+        successful = True
+        results = await asyncio.gather(
+            *(self.build(item) for item in projs), return_exceptions=True)
+        for idx, result in enumerate(results):
+            if result is not None:
+                successful = False
+                eprint(f'Project "{projs[idx]}" raised an exception:')
+                eprint(f"{type(result).__name__}: {result}", title=None)
+        return successful
 
 
 class Project:
@@ -170,9 +186,8 @@ class Project:
                 for item in depdict[table]:
                     self.builder.dep_manager.check(table, item)
             else:
-                await asyncio.gather(
-                    *(self.builder.build(item) for item in depdict[table])
-                )
+                if not await self.builder.build_many(depdict[table]):
+                    raise BuildError("Dependency failed to build, stopping.")
 
     def parse_conf_toml(self):
         """Load the conf toml and set envs."""
@@ -201,16 +216,13 @@ class Project:
         """Acquires project build lock."""
         lockfile = self.proj_dir / "zcbe.lock"
         while lockfile.exists():
-            eprint(f"The lockfile for project {self.proj_name} exists.")
-            eprint(
-                "If you're running multiple builds at the same time,",
-                "don't worry and we'll automatically proceed."
-            )
-            eprint(
-                "Otherwise please kill this process and remove the lock",
-                lockfile,
-                "by yourself. After that, check if everything is OK."
-            )
+            message = (f"The lockfile for project {self.proj_name} exists. "
+                       "If you're running multiple builds at the same time, "
+                       "don't worry and we'll automatically proceed. "
+                       "Otherwise please kill this process and remove "
+                       f'the lock file "{lockfile}" '
+                       "by yourself. After that, check if everything is OK.")
+            eprint('\n'.join(textwrap.wrap(message, 75)))
             time.sleep(10)
         lockfile.touch()
 
@@ -244,7 +256,7 @@ class Project:
         if process.returncode:
             # Build failed
             # Lock is still released as no one is writing to that directory
-            raise SubProcessError(
+            raise BuildError(
                 f"Command 'sh -e {shpath}' returned non-zero exit status"
                 f"{process.returncode}."
             )
