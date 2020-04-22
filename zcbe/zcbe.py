@@ -107,7 +107,7 @@ def start():
         warner.silence()
     if ns.chdir:
         os.chdir(ns.chdir)
-    asyncio.run(main(".", ns.projects, ns.silent))
+    return asyncio.run(main(".", ns.projects, ns.silent))
 
 
 async def main(projdir, to_build, if_silent):
@@ -117,4 +117,5 @@ async def main(projdir, to_build, if_silent):
     # Disable the traceback here so it won't flood the error message
     sys.tracebacklimit = 0
     with Build(projdir, warner, if_silent=if_silent) as proj:
-        await proj.build_many(to_build)
+        success = await proj.build_many(to_build)
+    return 0 if success else 1
