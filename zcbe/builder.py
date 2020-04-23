@@ -18,7 +18,6 @@
 
 import toml
 import os
-import time
 import asyncio
 import textwrap
 from pathlib import Path
@@ -102,10 +101,6 @@ class Build:
         """Build a project.
         proj_name: the name of the project
         """
-        # This project has already been built
-        if self.dep_manager.check("req", proj_name):
-            print(f"Requirement already satisfied: {proj_name}")
-            return
         proj = self.get_proj(proj_name)
         # Circular dependency is handled by Python's recursion limitation
         try:
@@ -203,14 +198,8 @@ class Project:
             self.version = pkg["ver"]
         except KeyError as e:
             raise ProjectTOMLError(f"Expected key `package.{e}' not found")
-        if "deps" in cdict:
-            self.depdict = cdict["deps"]
-        else:
-            self.depdict = {}
-        if "env" in cdict:
-            self.envdict = cdict["env"]
-        else:
-            self.envdict = {}
+        self.depdict = cdict["deps"] if "deps" in cdict else {}
+        self.envdict = cdict["env"] if "env" in cdict else {}
 
     async def acquire_lock(self):
         """Acquires project build lock."""
@@ -223,7 +212,7 @@ class Project:
                        f'the lock file "{lockfile}" '
                        "by yourself. After that, check if everything is OK.")
             eprint('\n'.join(textwrap.wrap(message, 75)))
-            time.sleep(10)
+            await asyncio.sleep(10)
         lockfile.touch()
 
     async def release_lock(self):
@@ -234,11 +223,18 @@ class Project:
 
     async def build(self):
         """Solve dependencies and build the project."""
+        # Solve dependencies recursively
         await self.solve_deps(self.depdict)
-        # Not infecting environ of other projects
+        # Not infecting the environ of other projects
         for item in self.envdict:
             self.environ[item[0]] = item[1]
+        # Make sure no two zcbes run in the same project
         await self.acquire_lock()
+        # Check if this project has already been built
+        if self.builder.dep_manager.check("req", self.proj_name):
+            print(f"Requirement already satisfied: {self.proj_name}")
+            await self.release_lock()
+            return
         print(f"Entering project {self.proj_name}")
         buildsh = self.locate_conf_toml().parent / "build.sh"
         shpath = buildsh.as_posix()
