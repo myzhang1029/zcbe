@@ -34,7 +34,7 @@ setup(
         "Operating System :: OS Independent",
         "Programming Language :: Python :: 3",
     ],
-    python_requires='>=3.5',
+    python_requires='>=3.7',
     packages=["zcbe"],
     install_requires=["toml"],
     entry_points={

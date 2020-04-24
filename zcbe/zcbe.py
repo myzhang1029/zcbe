@@ -95,7 +95,15 @@ def start():
     ap.add_argument("-w", help="Suppress all warnings", action="store_true")
     ap.add_argument("-W", metavar="WARNING",
                     help="Modify warning behaviour", action=WarningsAction)
+    # TODO
+    ap.add_argument("-B", "--rebuild", action="store_true",
+                    help="Force build requested projects and dependencies")
     ap.add_argument("-C", "--chdir", type=str, help="Change directory to")
+    ap.add_argument("-f", "--file", type=str, default="build.toml",
+                    help="Read FILE as build.toml")
+    # TODO
+    ap.add_argument("-a", "--all", action="store_true",
+                    help="Build all projects in mapping.toml")
     ap.add_argument("-s", "--silent", action="store_true",
                     help="Silence make standard output")
     ap.add_argument("-H", "--about", type=str, action=AboutAction,
@@ -103,17 +111,16 @@ def start():
     ap.add_argument('projects', metavar='PROJ', nargs='+',
                     help='List of projects to build')
     ns = ap.parse_args()
-    if ns.w:
-        warner.silence()
     if ns.chdir:
         os.chdir(ns.chdir)
-    return asyncio.run(main(".", ns.projects, ns.silent))
-
-
-async def main(projdir, to_build, if_silent):
     # Set up the warner to use
     warner = ZCBEWarner()
     warner.load_default(set(all_warnings), default_warnings)
-    builder = Build(projdir, warner, if_silent=if_silent)
-    success = await builder.build_many(to_build)
+    if ns.w:
+        warner.silence()
+    # Create builder instance
+    builder = Build(".", warner, if_silent=ns.silent,
+                    build_toml_filename=ns.file)
+    runner = builder.build_many(ns.projects)
+    success = asyncio.run(runner)
     return 0 if success else 1

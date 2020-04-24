@@ -33,22 +33,26 @@ class Build:
     build_dir: Directory of the build root
     warner: ZCBE warner
     if_silent: whether to silence make stdout
+    build_toml_filename: override build.toml's file name
     """
 
     def __init__(
         self,
         build_dir: str,
         warner: ZCBEWarner,
-        if_silent: bool = False
+        if_silent: bool = False,
+        build_toml_filename: str = "build.toml"
     ):
         self.build_dir = Path(build_dir).absolute()
-        self.build_toml = self.build_dir / "build.toml"
+        self.build_toml = self.build_dir / build_toml_filename
         self.warner = warner
         self.if_silent = if_silent
+        # Default value, can be overridden in build.toml
+        self.mappingfilename = "mapping.toml"
         if self.build_toml.exists():
             self.parse_build_toml()
         else:
-            raise BuildTOMLError("build.toml not found")
+            raise BuildTOMLError("build toml not found")
 
     def parse_build_toml(self):
         """Load the build toml (i.e. top level conf) and set envs."""
@@ -68,24 +72,26 @@ class Build:
             os.environ["ZCTOP"] = self.build_dir.as_posix()
         except KeyError as e:
             raise BuildTOMLError(f"Expected key `info.{e}' not found")
-        if "env" in info:
-            for item in info["env"]:
-                os.environ[item[0]] = item[1]
+        # Override default mapping file name
+        if "mapping" in info:
+            self.mappingfilename = info["mapping"]
+        if "env" in bdict:
+            os.environ = {**os.environ, **bdict["env"]}
 
     def get_proj_path(self, proj_name: str) -> Path:
         """Get a project's root directory by looking up the mapping toml.
         projname: The name of the project to look up
         """
-        self.mapping_toml = self.build_dir / "mapping.toml"
+        self.mapping_toml = self.build_dir / self.mappingfilename
         if not self.mapping_toml.exists():
-            raise MappingTOMLError("mapping.toml not found")
+            raise MappingTOMLError("mapping toml not found")
         mapping = toml.load(self.mapping_toml)["mapping"]
         try:
             return self.build_dir / mapping[proj_name]
         except KeyError as e:
             raise MappingTOMLError(f'project "{proj_name}" not found') from e
 
-    def get_proj(self, proj_name: str) -> Project:
+    def get_proj(self, proj_name: str):
         """Returns a project instance.
         projname: The name of the project
         """
@@ -121,7 +127,7 @@ class Build:
 class Project:
     """Represents a project (see concepts).
     proj_dir is the directory to the project
-    proj_name is the name in mapping.toml of the project
+    proj_name is the name in mapping toml of the project
     builder is used to resolve dependencies, get warner and get if_silent
     """
 
@@ -222,7 +228,7 @@ class Project:
         await self.solve_deps(self.depdict)
         # Not infecting the environ of other projects
         for item in self.envdict:
-            self.environ[item[0]] = item[1]
+            self.environ[item] = self.envdict[item]
         # Make sure no two zcbes run in the same project
         async with self.locked():
             # Check if this project has already been built

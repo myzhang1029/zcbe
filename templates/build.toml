@@ -1,12 +1,20 @@
 # Build config file
 # Placed in current working directory of zcbe
 [info]
+# The name of the build
 build-name = "name"
+# The install prefix
 prefix = "prefix"
+# cross-compile to build programs to run on HOST
+# aka compiler prefix
 hostname = "i486-linux-gnu"
-env = [
-["CC", "gcc"],
-["CFLAGS", "-W -Wall"],
-["LDFLAGS", "-lm"],
-["env-name", "env-val"],
-]
+# map file (optional, default: mapping.toml)
+mapping = "mapping.toml"
+
+# Additional environ
+[env]
+CC = "gcc"
+CFLAGS = "-W -Wall"
+LDFLAGS = "-lm"
+"env-name" = "env-val"
+
