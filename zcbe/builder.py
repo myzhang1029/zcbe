@@ -33,6 +33,7 @@ class Build:
     build_dir: Directory of the build root
     warner: ZCBE warner
     if_silent: whether to silence make stdout
+    if_rebuild: whether to ignore recipe and force rebuild
     build_toml_filename: override build.toml's file name
     """
 
@@ -41,14 +42,16 @@ class Build:
         build_dir: str,
         warner: ZCBEWarner,
         if_silent: bool = False,
+        if_rebuild: bool = False,
         build_toml_filename: str = "build.toml"
     ):
         self.build_dir = Path(build_dir).absolute()
         self.build_toml = self.build_dir / build_toml_filename
         self.warner = warner
         self.if_silent = if_silent
+        self.if_rebuild = if_rebuild
         # Default value, can be overridden in build.toml
-        self.mappingfilename = "mapping.toml"
+        self.mapping_toml_filename = "mapping.toml"
         if self.build_toml.exists():
             self.parse_build_toml()
         else:
@@ -74,7 +77,7 @@ class Build:
             raise BuildTOMLError(f"Expected key `info.{e}' not found")
         # Override default mapping file name
         if "mapping" in info:
-            self.mappingfilename = info["mapping"]
+            self.mapping_toml_filename = info["mapping"]
         if "env" in bdict:
             os.environ = {**os.environ, **bdict["env"]}
 
@@ -82,7 +85,7 @@ class Build:
         """Get a project's root directory by looking up the mapping toml.
         projname: The name of the project to look up
         """
-        self.mapping_toml = self.build_dir / self.mappingfilename
+        self.mapping_toml = self.build_dir / self.mapping_toml_filename
         if not self.mapping_toml.exists():
             raise MappingTOMLError("mapping toml not found")
         mapping = toml.load(self.mapping_toml)["mapping"]
@@ -106,7 +109,7 @@ class Build:
         # Circular dependency TODO
         if False:
             say = f'Circular dependency found near "{proj_name}"'
-        await proj.build()
+        await proj.build(if_rebuild=self.if_rebuild)
 
     async def build_many(self, projs: List[str]) -> bool:
         """Asynchronously build many projects.
@@ -132,7 +135,7 @@ class Project:
     """
 
     def __init__(self,
-                 proj_dir: str,
+                 proj_dir: os.PathLike,
                  proj_name: str,
                  builder: Build
                  ):
@@ -222,8 +225,10 @@ class Project:
         finally:
             await self.release_lock()
 
-    async def build(self):
-        """Solve dependencies and build the project."""
+    async def build(self, if_rebuild: bool = False):
+        """Solve dependencies and build the project.
+        if_rebuild: whether to ignore recipe and force rebuild
+        """
         # Solve dependencies recursively
         await self.solve_deps(self.depdict)
         # Not infecting the environ of other projects
@@ -232,7 +237,9 @@ class Project:
         # Make sure no two zcbes run in the same project
         async with self.locked():
             # Check if this project has already been built
-            if self.builder.dep_manager.check("req", self.proj_name):
+            # Skip if if_rebuild is set to True
+            if not if_rebuild and \
+                    self.builder.dep_manager.check("req", self.proj_name):
                 print(f"Requirement already satisfied: {self.proj_name}")
                 return
             print(f"Entering project {self.proj_name}")

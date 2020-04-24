@@ -95,7 +95,6 @@ def start():
     ap.add_argument("-w", help="Suppress all warnings", action="store_true")
     ap.add_argument("-W", metavar="WARNING",
                     help="Modify warning behaviour", action=WarningsAction)
-    # TODO
     ap.add_argument("-B", "--rebuild", action="store_true",
                     help="Force build requested projects and dependencies")
     ap.add_argument("-C", "--chdir", type=str, help="Change directory to")
@@ -119,7 +118,7 @@ def start():
     if ns.w:
         warner.silence()
     # Create builder instance
-    builder = Build(".", warner, if_silent=ns.silent,
+    builder = Build(".", warner, if_silent=ns.silent, if_rebuild=ns.rebuild,
                     build_toml_filename=ns.file)
     runner = builder.build_many(ns.projects)
     success = asyncio.run(runner)
