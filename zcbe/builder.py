@@ -72,7 +72,7 @@ class Build:
             for item in info["env"]:
                 os.environ[item[0]] = item[1]
 
-    def get_proj_path(self, proj_name: str):
+    def get_proj_path(self, proj_name: str) -> Path:
         """Get a project's root directory by looking up the mapping toml.
         projname: The name of the project to look up
         """
@@ -85,7 +85,7 @@ class Build:
         except KeyError as e:
             raise MappingTOMLError(f'project "{proj_name}" not found') from e
 
-    def get_proj(self, proj_name: str):
+    def get_proj(self, proj_name: str) -> Project:
         """Returns a project instance.
         projname: The name of the project
         """
@@ -97,13 +97,10 @@ class Build:
         proj_name: the name of the project
         """
         proj = self.get_proj(proj_name)
-        # Circular dependency is handled by Python's recursion limitation
-        try:
-            await proj.build()
-        except RecursionError as e:
-            e.args = (
-                f'Circular dependency found near "{proj_name}"',) + e.args[1:]
-            raise
+        # Circular dependency TODO
+        if False:
+            say = f'Circular dependency found near "{proj_name}"'
+        await proj.build()
 
     async def build_many(self, projs: List[str]) -> bool:
         """Asynchronously build many projects.
@@ -148,7 +145,7 @@ class Project:
         else:
             raise ProjectTOMLError("conf.toml not found")
 
-    def locate_conf_toml(self):
+    def locate_conf_toml(self) -> Path:
         """Try to locate conf.toml.
         Possible locations:
         $ZCTOP/zcbe/{name}.zcbe/conf.toml

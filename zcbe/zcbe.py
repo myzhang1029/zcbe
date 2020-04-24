@@ -114,8 +114,6 @@ async def main(projdir, to_build, if_silent):
     # Set up the warner to use
     warner = ZCBEWarner()
     warner.load_default(set(all_warnings), default_warnings)
-    # Disable the traceback here so it won't flood the error message
-    sys.tracebacklimit = 0
     builder = Build(projdir, warner, if_silent=if_silent)
     success = await builder.build_many(to_build)
     return 0 if success else 1
