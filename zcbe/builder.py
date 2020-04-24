@@ -19,6 +19,7 @@
 import toml
 import os
 import asyncio
+import contextlib
 import textwrap
 from pathlib import Path
 from typing import Dict, List
@@ -48,12 +49,6 @@ class Build:
             self.parse_build_toml()
         else:
             raise BuildTOMLError("build.toml not found")
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, *exc):
-        return
 
     def parse_build_toml(self):
         """Load the build toml (i.e. top level conf) and set envs."""
@@ -153,12 +148,6 @@ class Project:
         else:
             raise ProjectTOMLError("conf.toml not found")
 
-    def __enter__(self):
-        return self
-
-    def __exit__(self, *exc):
-        return
-
     def locate_conf_toml(self):
         """Try to locate conf.toml.
         Possible locations:
@@ -221,6 +210,15 @@ class Project:
         if lockfile.exists():
             lockfile.unlink()
 
+    @contextlib.asynccontextmanager
+    async def locked(self):
+        """With statement for build locks."""
+        await self.acquire_lock()
+        try:
+            yield
+        finally:
+            await self.release_lock()
+
     async def build(self):
         """Solve dependencies and build the project."""
         # Solve dependencies recursively
@@ -229,26 +227,24 @@ class Project:
         for item in self.envdict:
             self.environ[item[0]] = item[1]
         # Make sure no two zcbes run in the same project
-        await self.acquire_lock()
-        # Check if this project has already been built
-        if self.builder.dep_manager.check("req", self.proj_name):
-            print(f"Requirement already satisfied: {self.proj_name}")
-            await self.release_lock()
-            return
-        print(f"Entering project {self.proj_name}")
-        buildsh = self.locate_conf_toml().parent / "build.sh"
-        shpath = buildsh.as_posix()
-        os.chdir(self.proj_dir)
-        process = await asyncio.create_subprocess_exec(
-            "sh",
-            "-e",
-            shpath,
-            stdout=asyncio.subprocess.DEVNULL if self.if_silent else None,
-            env=self.environ,
-        )
-        await process.wait()
-        print(f"Leaving project {self.proj_name}")
-        await self.release_lock()
+        async with self.locked():
+            # Check if this project has already been built
+            if self.builder.dep_manager.check("req", self.proj_name):
+                print(f"Requirement already satisfied: {self.proj_name}")
+                return
+            print(f"Entering project {self.proj_name}")
+            buildsh = self.locate_conf_toml().parent / "build.sh"
+            shpath = buildsh.as_posix()
+            os.chdir(self.proj_dir)
+            process = await asyncio.create_subprocess_exec(
+                "sh",
+                "-e",
+                shpath,
+                stdout=asyncio.subprocess.DEVNULL if self.if_silent else None,
+                env=self.environ,
+            )
+            await process.wait()
+            print(f"Leaving project {self.proj_name}")
         if process.returncode:
             # Build failed
             # Lock is still released as no one is writing to that directory
