@@ -19,7 +19,7 @@ from setuptools import setup
 
 setup(
     name="zcbe",
-    version="0.2.1",
+    version="0.2.2",
     description="The Z Cross Build Environment",
     long_description=open("README.md").read(),
     long_description_content_type="text/markdown",

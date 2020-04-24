@@ -100,14 +100,13 @@ def start():
     ap.add_argument("-C", "--chdir", type=str, help="Change directory to")
     ap.add_argument("-f", "--file", type=str, default="build.toml",
                     help="Read FILE as build.toml")
-    # TODO
     ap.add_argument("-a", "--all", action="store_true",
                     help="Build all projects in mapping.toml")
     ap.add_argument("-s", "--silent", action="store_true",
                     help="Silence make standard output")
     ap.add_argument("-H", "--about", type=str, action=AboutAction,
                     help='Help on a topic("topics" for a list of topics)')
-    ap.add_argument('projects', metavar='PROJ', nargs='+',
+    ap.add_argument('projects', metavar='PROJ', nargs='*',
                     help='List of projects to build')
     ns = ap.parse_args()
     if ns.chdir:
@@ -120,6 +119,9 @@ def start():
     # Create builder instance
     builder = Build(".", warner, if_silent=ns.silent, if_rebuild=ns.rebuild,
                     build_toml_filename=ns.file)
-    runner = builder.build_many(ns.projects)
+    if ns.all:
+        runner = builder.build_all()
+    else:
+        runner = builder.build_many(ns.projects)
     success = asyncio.run(runner)
     return 0 if success else 1

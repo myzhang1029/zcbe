@@ -101,6 +101,14 @@ class Build:
         proj_path = self.get_proj_path(proj_name)
         return Project(proj_path, proj_name, self)
 
+    async def build_all(self):
+        """Build all projects in mapping toml."""
+        self.mapping_toml = self.build_dir / self.mapping_toml_filename
+        if not self.mapping_toml.exists():
+            raise MappingTOMLError("mapping toml not found")
+        mapping = toml.load(self.mapping_toml)["mapping"]
+        return await self.build_many([p for p in mapping])
+
     async def build(self, proj_name: str):
         """Build a project.
         proj_name: the name of the project
