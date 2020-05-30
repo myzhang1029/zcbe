@@ -22,6 +22,8 @@ from .exceptions import eprint
 
 
 class ZCBEWarner:
+    """A simple warner for ZCBE."""
+
     def __init__(self):
         self.options = {}
         self.silent = False
@@ -32,14 +34,14 @@ class ZCBEWarner:
         for one in options:
             self.options[one] = options[one]
 
-    def load_default(self, all: Set[str], enabled: Set[str]):
+    def load_default(self, all_warnings: Set[str], enabled_warnings: Set[str]):
         """Load default enable/disable settings.
-        all: all warning types
-        enabled: defaultly enabled warnings
+        all_warnings: all warning types
+        enabled_warnings: defaultly enabled warnings
         """
-        for one in all:
+        for one in all_warnings:
             self.options[one] = False
-        for one in enabled:
+        for one in enabled_warnings:
             self.options[one] = True
 
     def silence(self):
@@ -55,17 +57,17 @@ class ZCBEWarner:
     def werror(self):
         """Exit if -Werror is supplied."""
         if self.options["error"]:
-            eprint("Error: exiting [-Werror]")
+            eprint("exiting [-Werror]")
             sys.exit(2)
 
-    def warn(self, name: str, s: str):
+    def warn(self, name: str, string: str):
         """Issue a warning.
         name: the registered name of this warning
-        s: the warning string
+        string: the warning string
         """
-        title = "Warning"
+        title = "Warning: "
         if self.options["error"]:
-            title = "Error"
+            title = "Error: "
         if self.shouldwarn(name):
-            eprint(f"{title}: {s} [-W{name}]")
+            eprint(f"{string} [-W{name}]", title=title)
             self.werror()

@@ -17,29 +17,32 @@
 """ZCBE exceptions and error handling."""
 import sys
 
+__all__ = ["BuildError", "ConfigError", "BuildTOMLError",
+           "MappingTOMLError", "ProjectTOMLError", "eprint"]
+
 
 class BuildError(Exception):
-    pass
+    """Exception raised when build failed."""
 
 
 class ConfigError(Exception):
-    pass
+    """Base exception raised when configs are faluty."""
 
 
 class BuildTOMLError(ConfigError):
-    pass
+    """Exception raised when build.toml is faluty."""
 
 
 class MappingTOMLError(ConfigError):
-    pass
+    """Exception raised when mapping.toml is faluty."""
 
 
 class ProjectTOMLError(ConfigError):
-    pass
+    """Exception raised when conf.toml is faluty."""
 
 
-def eprint(*args, title="zcbe: *** Error: ", **kwargs):
+def eprint(*args, title="Error: ", **kwargs):
     """Print to stderr, use title as the starting if supplied."""
     if title:
-        print(title, end='', file=sys.stderr)
+        print("zcbe ***", title, end='', file=sys.stderr)
     print(*args, file=sys.stderr, **kwargs)

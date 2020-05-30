@@ -14,17 +14,28 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""ZCBE dependency tracker with persistence."""
+
 import json
 from pathlib import Path
 
 
 class DepManager:
+    """Dependency Tracker.
+    depfile: Path to the dependency tracking file
+
+    Dependency types:
+        req: things that need to be built
+        build: build tools that should be present on the computer
+    """
+
     def __init__(self, depfile):
         self.depfile = depfile
         if not Path(depfile).exists():
             json.dump({}, open(depfile, "w"))
 
     def add(self, deptype, depname):
+        """Mark a dependency as "built"."""
         depfile = json.load(open(self.depfile))
         try:
             depfile[deptype][depname] = True
@@ -33,19 +44,21 @@ class DepManager:
             depfile[deptype][depname] = True
         json.dump(depfile, open(self.depfile, "w"))
 
-    def ask_build(self, depname):
+    @staticmethod
+    def ask_build(depname):
+        """Ask the user if a build tool has been installed."""
         while True:
             resp = input(f"Is {depname} installed on your system? [y/n] ")
             resp = resp.lower()
             if resp == "y":
                 return True
-            elif resp == "n":
+            if resp == "n":
                 input(f"Please install {depname} and press enter.")
                 return True
-            else:
-                print("Unknown reply.")
+            print("Unknown reply.")
 
     def check(self, deptype, depname):
+        """Check if a dependency has been marked as "built"."""
         depfile = json.load(open(self.depfile))
         try:
             return depfile[deptype][depname]

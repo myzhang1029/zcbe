@@ -16,16 +16,17 @@
 
 """ZCBE builds and projects."""
 
-import toml
 import os
 import asyncio
 import contextlib
 import textwrap
 from pathlib import Path
 from typing import Dict, List
+import toml
 from .dep_manager import DepManager
 from .warner import ZCBEWarner
-from .exceptions import *
+from .exceptions import BuildError, BuildTOMLError, MappingTOMLError, \
+    ProjectTOMLError, eprint
 
 
 class Build:
@@ -37,47 +38,49 @@ class Build:
     build_toml_filename: override build.toml's file name
     """
 
+    # pylint: disable=too-many-instance-attributes
     def __init__(
-        self,
-        build_dir: str,
-        warner: ZCBEWarner,
-        if_silent: bool = False,
-        if_rebuild: bool = False,
-        build_toml_filename: str = "build.toml"
+            self,
+            build_dir: str,
+            warner: ZCBEWarner,
+            *,
+            if_silent: bool = False,
+            if_rebuild: bool = False,
+            build_toml_filename: str = "build.toml"
     ):
-        self.build_dir = Path(build_dir).absolute()
-        self.build_toml = self.build_dir / build_toml_filename
-        self.warner = warner
-        self.if_silent = if_silent
-        self.if_rebuild = if_rebuild
+        self._warner = warner
+        self._if_silent = if_silent
+        self._if_rebuild = if_rebuild
+        self._build_dir = Path(build_dir).absolute()
+        self._build_toml_filename = build_toml_filename
         # Default value, can be overridden in build.toml
-        self.mapping_toml_filename = "mapping.toml"
-        if self.build_toml.exists():
-            self.parse_build_toml()
-        else:
-            raise BuildTOMLError("build toml not found")
+        self._mapping_toml_filename = "mapping.toml"
+        self.parse_build_toml()
 
     def parse_build_toml(self):
         """Load the build toml (i.e. top level conf) and set envs."""
-        bdict = toml.load(self.build_toml)
+        build_toml = self._build_dir / self._build_toml_filename
+        if not build_toml.exists():
+            raise BuildTOMLError("build toml not found")
+        bdict = toml.load(build_toml)
         info = bdict["info"]
         try:
             # Read configuration parameters
-            self.build_name = info["build-name"]
-            self.prefix = info["prefix"]
-            self.host = info["hostname"]
+            self._build_name = info["build-name"]
+            self._prefix = info["prefix"]
+            self._host = info["hostname"]
             # Make sure prefix exists and is a directory
-            Path(self.prefix).mkdir(parents=True, exist_ok=True)
+            Path(self._prefix).mkdir(parents=True, exist_ok=True)
             # Initialize dependency and built recorder
-            self.dep_manager = DepManager(self.prefix+"/zcbe.recipe")
-            os.environ["ZCPREF"] = self.prefix
-            os.environ["ZCHOST"] = self.host
-            os.environ["ZCTOP"] = self.build_dir.as_posix()
-        except KeyError as e:
-            raise BuildTOMLError(f"Expected key `info.{e}' not found")
+            self._dep_manager = DepManager(self._prefix+"/zcbe.recipe")
+            os.environ["ZCPREF"] = self._prefix
+            os.environ["ZCHOST"] = self._host
+            os.environ["ZCTOP"] = self._build_dir.as_posix()
+        except KeyError as err:
+            raise BuildTOMLError(f"Expected key `info.{err}' not found")
         # Override default mapping file name
         if "mapping" in info:
-            self.mapping_toml_filename = info["mapping"]
+            self._mapping_toml_filename = info["mapping"]
         if "env" in bdict:
             os.environ = {**os.environ, **bdict["env"]}
 
@@ -85,14 +88,14 @@ class Build:
         """Get a project's root directory by looking up the mapping toml.
         projname: The name of the project to look up
         """
-        self.mapping_toml = self.build_dir / self.mapping_toml_filename
-        if not self.mapping_toml.exists():
+        mapping_toml = self._build_dir / self._mapping_toml_filename
+        if not mapping_toml.exists():
             raise MappingTOMLError("mapping toml not found")
-        mapping = toml.load(self.mapping_toml)["mapping"]
+        mapping = toml.load(mapping_toml)["mapping"]
         try:
-            return self.build_dir / mapping[proj_name]
-        except KeyError as e:
-            raise MappingTOMLError(f'project "{proj_name}" not found') from e
+            return self._build_dir / mapping[proj_name]
+        except KeyError as err:
+            raise MappingTOMLError(f'project "{proj_name}" not found') from err
 
     def get_proj(self, proj_name: str):
         """Returns a project instance.
@@ -103,11 +106,11 @@ class Build:
 
     async def build_all(self):
         """Build all projects in mapping toml."""
-        self.mapping_toml = self.build_dir / self.mapping_toml_filename
-        if not self.mapping_toml.exists():
+        mapping_toml = self._build_dir / self._mapping_toml_filename
+        if not mapping_toml.exists():
             raise MappingTOMLError("mapping toml not found")
-        mapping = toml.load(self.mapping_toml)["mapping"]
-        return await self.build_many([p for p in mapping])
+        mapping = toml.load(mapping_toml)["mapping"]
+        return await self.build_many(list(mapping))
 
     async def build(self, proj_name: str):
         """Build a project.
@@ -115,9 +118,9 @@ class Build:
         """
         proj = self.get_proj(proj_name)
         # Circular dependency TODO
-        if False:
-            say = f'Circular dependency found near "{proj_name}"'
-        await proj.build(if_rebuild=self.if_rebuild)
+        # if False:
+        #     say = f'Circular dependency found near "{proj_name}"'
+        await proj.build(if_rebuild=self._if_rebuild)
 
     async def build_many(self, projs: List[str]) -> bool:
         """Asynchronously build many projects.
@@ -134,6 +137,14 @@ class Build:
                 eprint(f"{type(result).__name__}: {result}", title=None)
         return successful
 
+    def get_warner(self) -> ZCBEWarner:
+        """Return the internal warner used."""
+        return self._warner
+
+    def get_dep_manager(self) -> DepManager:
+        """Return the dependency manager used."""
+        return self._dep_manager
+
 
 class Project:
     """Represents a project (see concepts).
@@ -142,25 +153,22 @@ class Project:
     builder is used to resolve dependencies, get warner and get if_silent
     """
 
+    # pylint: disable=too-many-instance-attributes
     def __init__(self,
                  proj_dir: os.PathLike,
                  proj_name: str,
                  builder: Build
                  ):
-        self.proj_dir = Path(proj_dir)
-        if not self.proj_dir.is_dir():
+        self._proj_dir = Path(proj_dir)
+        if not self._proj_dir.is_dir():
             raise MappingTOMLError(
                 f"project {proj_name} not found at {proj_dir}")
-        self.proj_name = proj_name
-        self.builder = builder
-        self.warner = builder.warner
-        self.if_silent = builder.if_silent
-        self.environ = os.environ
-        self.conf_toml = self.locate_conf_toml()
-        if self.conf_toml.exists():
-            self.parse_conf_toml()
-        else:
-            raise ProjectTOMLError("conf.toml not found")
+        self._proj_name = proj_name
+        self._builder = builder
+        self._warner = builder.get_warner()
+        self._dep_manager = builder.get_dep_manager()
+        self._if_silent = builder._if_silent
+        self.parse_conf_toml()
 
     def locate_conf_toml(self) -> Path:
         """Try to locate conf.toml.
@@ -169,10 +177,10 @@ class Project:
         ./zcbe/conf.toml
         """
         toplevel_try = Path(os.environ["ZCTOP"]) / \
-            "zcbe"/(self.proj_name+".zcbe")/"conf.toml"
+            "zcbe"/(self._proj_name+".zcbe")/"conf.toml"
         if toplevel_try.exists():
             return toplevel_try
-        local_try = self.proj_dir / "zcbe/conf.toml"
+        local_try = self._proj_dir / "zcbe/conf.toml"
         if local_try.exists():
             return local_try
         raise ProjectTOMLError("conf.toml not found")
@@ -182,45 +190,54 @@ class Project:
         for table in depdict:
             if table == "build":
                 for item in depdict[table]:
-                    self.builder.dep_manager.check(table, item)
+                    self._dep_manager.check(table, item)
             else:
-                if not await self.builder.build_many(depdict[table]):
+                if not await self._builder.build_many(depdict[table]):
                     raise BuildError("Dependency failed to build, stopping.")
 
     def parse_conf_toml(self):
         """Load the conf toml and set envs."""
-        cdict = toml.load(self.conf_toml)
+        # Make sure of conf.toml's presence
+        conf_toml = self.locate_conf_toml()
+        if not conf_toml.exists():
+            raise ProjectTOMLError("conf.toml not found")
+        # TOML decode the file
+        cdict = toml.load(conf_toml)
         pkg = cdict["package"]
         try:
-            self.package_name = pkg["name"]
-            if self.package_name != self.proj_name:
-                self.warner.warn(
+            self._package_name = pkg["name"]
+            if self._package_name != self._proj_name:
+                # conf.toml and mapping.toml specified different project names.
+                # those config files could have been copied from elsewhere, so
+                # possibly some other adaptations haven't been done
+                self._warner.warn(
                     "name-mismatch",
-                    f'"{self.package_name}" mismatches with "{self.proj_name}"'
+                    f'"{self._package_name}" mismatches with '
+                    f'{self._proj_name}"'
                 )
-            self.version = pkg["ver"]
-        except KeyError as e:
-            raise ProjectTOMLError(f"Expected key `package.{e}' not found")
-        self.depdict = cdict["deps"] if "deps" in cdict else {}
-        self.envdict = cdict["env"] if "env" in cdict else {}
+            self._version = pkg["ver"]
+        except KeyError as err:
+            raise ProjectTOMLError(f"Expected key `package.{err}' not found")
+        self._depdict = cdict["deps"] if "deps" in cdict else {}
+        self._envdict = cdict["env"] if "env" in cdict else {}
 
     async def acquire_lock(self):
         """Acquires project build lock."""
-        lockfile = self.proj_dir / "zcbe.lock"
+        lockfile = self._proj_dir / "zcbe.lock"
         while lockfile.exists():
-            message = (f"The lockfile for project {self.proj_name} exists. "
-                       "If you're running multiple builds at the same time, "
-                       "don't worry and we'll automatically proceed. "
-                       "Otherwise please kill this process and remove "
-                       f'the lock file "{lockfile}" '
-                       "by yourself. After that, check if everything is OK.")
-            eprint('\n'.join(textwrap.wrap(message, 75)))
-            await asyncio.sleep(10)
+            message = (f"The lockfile for project {self._proj_name} exists. "
+                       "This is usually not a worry, as ZCBE builds multiple "
+                       "projects simultaneously. If this warning persists "
+                       "for a long while, please kill this process and "
+                       f'remove the lock file "{lockfile}" '
+                       "by yourself, and check if everything is OK.")
+            eprint('\n'.join(textwrap.wrap(message, 75)), title="Warning: ")
+            await asyncio.sleep(20)
         lockfile.touch()
 
     async def release_lock(self):
         """Releases project build lock."""
-        lockfile = self.proj_dir / "zcbe.lock"
+        lockfile = self._proj_dir / "zcbe.lock"
         if lockfile.exists():
             lockfile.unlink()
 
@@ -238,31 +255,32 @@ class Project:
         if_rebuild: whether to ignore recipe and force rebuild
         """
         # Solve dependencies recursively
-        await self.solve_deps(self.depdict)
+        await self.solve_deps(self._depdict)
         # Not infecting the environ of other projects
-        for item in self.envdict:
-            self.environ[item] = self.envdict[item]
+        environ = os.environ
+        for item in self._envdict:
+            environ[item] = self._envdict[item]
         # Make sure no two zcbes run in the same project
         async with self.locked():
             # Check if this project has already been built
             # Skip if if_rebuild is set to True
             if not if_rebuild and \
-                    self.builder.dep_manager.check("req", self.proj_name):
-                print(f"Requirement already satisfied: {self.proj_name}")
+                    self._dep_manager.check("req", self._proj_name):
+                print(f"Requirement already satisfied: {self._proj_name}")
                 return
-            print(f"Entering project {self.proj_name}")
+            print(f"Entering project {self._proj_name}")
             buildsh = self.locate_conf_toml().parent / "build.sh"
             shpath = buildsh.as_posix()
-            os.chdir(self.proj_dir)
+            os.chdir(self._proj_dir)
             process = await asyncio.create_subprocess_exec(
                 "sh",
                 "-e",
                 shpath,
-                stdout=asyncio.subprocess.DEVNULL if self.if_silent else None,
-                env=self.environ,
+                stdout=asyncio.subprocess.DEVNULL if self._if_silent else None,
+                env=environ,
             )
             await process.wait()
-            print(f"Leaving project {self.proj_name}")
+            print(f"Leaving project {self._proj_name}")
         if process.returncode:
             # Build failed
             # Lock is still released as no one is writing to that directory
@@ -271,4 +289,4 @@ class Project:
                 f"{process.returncode}."
             )
         # write recipe
-        self.builder.dep_manager.add("req", self.proj_name)
+        self._dep_manager.add("req", self._proj_name)
