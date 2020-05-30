@@ -257,9 +257,7 @@ class Project:
         # Solve dependencies recursively
         await self.solve_deps(self._depdict)
         # Not infecting the environ of other projects
-        environ = os.environ
-        for item in self._envdict:
-            environ[item] = self._envdict[item]
+        environ = {**os.environ, **self._envdict}
         # Make sure no two zcbes run in the same project
         async with self.locked():
             # Check if this project has already been built
