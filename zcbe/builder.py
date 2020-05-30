@@ -23,6 +23,7 @@ import textwrap
 from pathlib import Path
 from typing import Dict, List
 import toml
+from .env import expandvars as expand
 from .dep_manager import DepManager
 from .warner import ZCBEWarner
 from .exceptions import BuildError, BuildTOMLError, MappingTOMLError, \
@@ -84,7 +85,9 @@ class Build:
         if "mapping" in info:
             self._mapping_toml_filename = info["mapping"]
         if "env" in bdict:
-            os.environ = {**os.environ, **bdict["env"]}
+            edict = bdict["env"]
+            # Expand sh-style variable
+            os.environ.update({k: expand(edict[k]) for k in edict})
 
     def get_proj_path(self, proj_name: str) -> Path:
         """Get a project's root directory by looking up mapping toml.
@@ -277,7 +280,9 @@ class Project:
         # Solve dependencies recursively
         await self.solve_deps(self._depdict)
         # Not infecting the environ of other projects
-        environ = {**os.environ, **self._envdict}
+        # Expand sh-style variable
+        environ = {**os.environ, **
+                   {k: expand(self._envdict[k]) for k in self._envdict}}
         # Make sure no two zcbes run in the same project
         async with self.locked():
             # Check if this project has already been built

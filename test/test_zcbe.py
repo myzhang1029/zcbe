@@ -49,7 +49,7 @@ def skel():
                     'req': []
                 },
                 'env': {
-                    'I': '1'
+                    'I': '${ZCPREF}'
                 }
             }
             toml.dump(conf_toml, fil)
@@ -78,7 +78,8 @@ def test_zcbe():
         out, err = p.communicate(b"y\ny\n")
         pjf1 = (skeleton/"pj.f").open().read()
         pjf2 = (skeleton/"pj2.f").open().read()
-        pjf1_intended = "1\nzcbecc\n-W -Wall\n-lm\nenv-val\n"
+        pjf1_intended = skeleton.resolve().as_posix()
+        pjf1_intended += "/prefix\nzcbecc\n-W -Wall\n-lm\nenv-val\n"
         pjf2_intended = skeleton.resolve().as_posix()
         pjf2_intended += "/prefix\ni486-linux-gnu\n"
         assert pjf1 == pjf1_intended
