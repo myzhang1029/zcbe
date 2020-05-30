@@ -51,7 +51,7 @@ class Build:
         self._warner = warner
         self._if_silent = if_silent
         self._if_rebuild = if_rebuild
-        self._build_dir = Path(build_dir).absolute()
+        self._build_dir = Path(build_dir).resolve()
         self._build_toml_filename = build_toml_filename
         # Default value, can be overridden in build.toml
         self._mapping_toml_filename = "mapping.toml"
@@ -67,13 +67,13 @@ class Build:
         try:
             # Read configuration parameters
             self._build_name = info["build-name"]
-            self._prefix = info["prefix"]
+            self._prefix = Path(info["prefix"]).resolve()
             self._host = info["hostname"]
             # Make sure prefix exists and is a directory
-            Path(self._prefix).mkdir(parents=True, exist_ok=True)
+            self._prefix.mkdir(parents=True, exist_ok=True)
             # Initialize dependency and built recorder
-            self._dep_manager = DepManager(self._prefix+"/zcbe.recipe")
-            os.environ["ZCPREF"] = self._prefix
+            self._dep_manager = DepManager(self._prefix/"zcbe.recipe")
+            os.environ["ZCPREF"] = self._prefix.as_posix()
             os.environ["ZCHOST"] = self._host
             os.environ["ZCTOP"] = self._build_dir.as_posix()
         except KeyError as err:
