@@ -31,11 +31,13 @@ from .exceptions import BuildError, BuildTOMLError, MappingTOMLError, \
 
 class Build:
     """Represents a build (see concepts).
-    build_dir: Directory of the build root
-    warner: ZCBE warner
-    if_silent: whether to silence make stdout
-    if_rebuild: whether to ignore recipe and force rebuild
-    build_toml_filename: override build.toml's file name
+
+    Args:
+        build_dir: Directory of the build root
+        warner: ZCBE warner
+        if_silent: whether to silence make stdout
+        if_rebuild: whether to ignore recipe and force rebuild
+        build_toml_filename: override build.toml's file name
     """
 
     # pylint: disable=too-many-instance-attributes
@@ -85,8 +87,10 @@ class Build:
             os.environ = {**os.environ, **bdict["env"]}
 
     def get_proj_path(self, proj_name: str) -> Path:
-        """Get a project's root directory by looking up the mapping toml.
-        projname: The name of the project to look up
+        """Get a project's root directory by looking up mapping toml.
+
+        Args:
+            projname: The name of the project to look up
         """
         mapping_toml = self._build_dir / self._mapping_toml_filename
         if not mapping_toml.exists():
@@ -98,13 +102,18 @@ class Build:
             raise MappingTOMLError(f'project "{proj_name}" not found') from err
 
     def get_proj(self, proj_name: str):
-        """Returns a project instance.
-        projname: The name of the project
+        """Get the Project instance corresponding to proj_name.
+
+        Args:
+            projname: The name of the project
+
+        Return:
+            Project
         """
         proj_path = self.get_proj_path(proj_name)
         return Project(proj_path, proj_name, self)
 
-    async def build_all(self):
+    async def build_all(self) -> bool:
         """Build all projects in mapping toml."""
         mapping_toml = self._build_dir / self._mapping_toml_filename
         if not mapping_toml.exists():
@@ -114,7 +123,9 @@ class Build:
 
     async def build(self, proj_name: str):
         """Build a project.
-        proj_name: the name of the project
+
+        Args:
+            proj_name: the name of the project
         """
         proj = self.get_proj(proj_name)
         # Circular dependency TODO
@@ -124,8 +135,12 @@ class Build:
 
     async def build_many(self, projs: List[str]) -> bool:
         """Asynchronously build many projects.
-        projs: List of project names to be built
-        Returns whether the operations didn't raise anything.
+
+        Args:
+            projs: List of project names to be built
+
+        Return:
+            whether the operations didn't raise anything.
         """
         successful = True
         results = await asyncio.gather(
@@ -148,9 +163,11 @@ class Build:
 
 class Project:
     """Represents a project (see concepts).
-    proj_dir is the directory to the project
-    proj_name is the name in mapping toml of the project
-    builder is used to resolve dependencies, get warner and get if_silent
+
+    Args:
+        proj_dir: the directory to the project
+        proj_name: the name in mapping toml of the project
+        builder: used to resolve dependencies, get warner and if_silent
     """
 
     # pylint: disable=too-many-instance-attributes
@@ -172,9 +189,10 @@ class Project:
 
     def locate_conf_toml(self) -> Path:
         """Try to locate conf.toml.
+
         Possible locations:
-        $ZCTOP/zcbe/{name}.zcbe/conf.toml
-        ./zcbe/conf.toml
+            $ZCTOP/zcbe/{name}.zcbe/conf.toml
+            ./zcbe/conf.toml
         """
         toplevel_try = Path(os.environ["ZCTOP"]) / \
             "zcbe"/(self._proj_name+".zcbe")/"conf.toml"
@@ -252,7 +270,9 @@ class Project:
 
     async def build(self, if_rebuild: bool = False):
         """Solve dependencies and build the project.
-        if_rebuild: whether to ignore recipe and force rebuild
+
+        Args:
+            if_rebuild: whether to ignore recipe and force rebuild
         """
         # Solve dependencies recursively
         await self.solve_deps(self._depdict)

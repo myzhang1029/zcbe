@@ -22,7 +22,9 @@ from pathlib import Path
 
 class DepManager:
     """Dependency Tracker.
-    depfile: Path to the dependency tracking file
+
+    Args:
+        depfile: Path to the dependency tracking file
 
     Dependency types:
         req: things that need to be built

@@ -36,8 +36,10 @@ class ZCBEWarner:
 
     def load_default(self, all_warnings: Set[str], enabled_warnings: Set[str]):
         """Load default enable/disable settings.
-        all_warnings: all warning types
-        enabled_warnings: defaultly enabled warnings
+
+        Args:
+            all_warnings: all warning types
+            enabled_warnings: defaultly enabled warnings
         """
         for one in all_warnings:
             self.options[one] = False
@@ -45,7 +47,7 @@ class ZCBEWarner:
             self.options[one] = True
 
     def silence(self):
-        """Silence all warnings. (-w)"""
+        """Silence all warnings (shell -w)."""
         self.silent = True
 
     def shouldwarn(self, name: str):
@@ -62,8 +64,10 @@ class ZCBEWarner:
 
     def warn(self, name: str, string: str):
         """Issue a warning.
-        name: the registered name of this warning
-        string: the warning string
+
+        Args:
+            name: the registered name of this warning
+            string: the warning string
         """
         title = "Warning: "
         if self.options["error"]:
