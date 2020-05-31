@@ -92,7 +92,6 @@ def base_test_invocator(monkeypatch, *, args: List[str] = [],
         stderr = io.StringIO()
         monkeypatch.setattr(
             "sys.argv", ["zcbe"] + args + ["-C", skeleton.as_posix(), "pj2"])
-        print(args)
         monkeypatch.setattr("sys.stdin", stdin)
         monkeypatch.setattr("sys.stderr", stderr)
         zcbe.start()
@@ -111,21 +110,26 @@ def test_env(monkeypatch):
     buildspec = deepcopy(BS_BASE)
     buildspec["build_toml"]["env"]["ENV1"] = "$ZCHOST"
     buildspec["projects"][0]["build_sh"] += "echo $ENV1 >> pj.f\n"
-    buildspec["projects"][1]["conf_toml"]["env"] = {"ENV2": "${ZCPREF}"}
+    buildspec["projects"][1]["conf_toml"]["env"] = {
+        "ENV2": "${ZCPREF}",
+        # A non-existent environ
+        "ENV3": "${NOTHING}"
+    }
     buildspec["projects"][1]["build_sh"] += "echo $ZCHOST >> pj2.f\n"
     buildspec["projects"][1]["build_sh"] += "echo $ENV2 >> pj2.f\n"
+    buildspec["projects"][1]["build_sh"] += "echo $ENV3 >> pj2.f\n"
     with base_test_invocator(monkeypatch, buildspec=buildspec) \
             as (skeleton, _, stderr):
         prefix = (skeleton/"prefix").resolve().as_posix()
         assert stderr.getvalue() == ""
         assert (skeleton/"pj.f").open().read() == "i486-linux-gnu\n"
         assert (skeleton/"pj2.f").open().read() \
-            == "i486-linux-gnu\n" + prefix + "\n"
+            == "i486-linux-gnu\n" + prefix + "\n\n"
 
 
 def test_builddep_prompt(monkeypatch):
     """Test for build dependency prompt."""
-    stdin = io.StringIO("y\ny\n")
+    stdin = io.StringIO("y\nt\nn\n\n")
     buildspec = deepcopy(BS_BASE)
     buildspec["projects"][0]["conf_toml"]["deps"]["build"].append("bud0")
     buildspec["projects"][1]["conf_toml"]["deps"]["build"].append("bud1")
@@ -148,8 +152,59 @@ def test_wflag(monkeypatch):
     # See if -Werror works
     try:
         with base_test_invocator(monkeypatch, args=["-Werror", "-Wnothing"]):
+            # `with` to activate the cm
             pass
     except SystemExit as err:
         assert err.__class__ == SystemExit
         return
     assert 0, "This test should exit abnormally"
+
+
+def test_name_mismatch(monkeypatch):
+    """Test for -Wname-mismatch."""
+    buildspec = deepcopy(BS_BASE)
+    buildspec["projects"][0]["conf_toml"]["package"]["name"] = "blabla"
+    with base_test_invocator(monkeypatch, buildspec=buildspec) \
+            as (_, _, stderr):
+        assert "-Wname-mismatch" in stderr.getvalue()
+    with base_test_invocator(monkeypatch, args=["-Wno-name-mismatch"],
+                             buildspec=buildspec) \
+            as (_, _, stderr):
+        assert stderr.getvalue() == ""
+
+
+def test_mapping(monkeypatch):
+    """Test for mapping.toml override."""
+    buildspec = deepcopy(BS_BASE)
+    buildspec["mapping_toml_filename"] = "m.toml"
+    buildspec["build_toml"]["info"]["mapping"] = "m.toml"
+    with base_test_invocator(monkeypatch, buildspec=buildspec) \
+            as (_, _, stderr):
+        assert stderr.getvalue() == ""
+
+
+def test_buildtoml_error1(monkeypatch):
+    """Test for non-existent build.toml"""
+    buildspec = deepcopy(BS_BASE)
+    # build.toml not found
+    buildspec["build_toml_filename"] = "none.toml"
+    try:
+        with base_test_invocator(monkeypatch, buildspec=buildspec):
+            # `with` to activate the cm
+            pass
+    except zcbe.exceptions.BuildTOMLError:
+        return
+    assert 0, "This test should raise"
+
+
+def test_buildtoml_error2(monkeypatch):
+    """Test for bad build.toml"""
+    buildspec = deepcopy(BS_BASE)
+    del buildspec["build_toml"]["info"]["prefix"]
+    try:
+        with base_test_invocator(monkeypatch, buildspec=buildspec):
+            # `with` to activate the cm
+            pass
+    except zcbe.exceptions.BuildTOMLError:
+        return
+    assert 0, "This test should raise"
