@@ -253,7 +253,7 @@ class Project:
                        f'remove the lock file "{lockfile}" '
                        "by yourself, and check if everything is OK.")
             eprint('\n'.join(textwrap.wrap(message, 75)), title="Warning: ")
-            await asyncio.sleep(20)
+            await asyncio.sleep(10)
         lockfile.touch()
 
     async def release_lock(self):

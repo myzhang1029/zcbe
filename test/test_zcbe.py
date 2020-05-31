@@ -93,6 +93,7 @@ def base_test_invocator(monkeypatch, *, args: List[str] = [],
         monkeypatch.setattr(
             "sys.argv", ["zcbe"] + args + ["-C", skeleton.as_posix(), "pj2"])
         monkeypatch.setattr("sys.stdin", stdin)
+        monkeypatch.setattr("sys.stdout", stdout)
         monkeypatch.setattr("sys.stderr", stderr)
         zcbe.start()
         yield skeleton, stdout, stderr
@@ -208,3 +209,39 @@ def test_buildtoml_error2(monkeypatch):
     except zcbe.exceptions.BuildTOMLError:
         return
     assert 0, "This test should raise"
+
+
+def test_build_all(monkeypatch):
+    """Test for -a option."""
+    buildspec = deepcopy(BS_BASE)
+    buildspec["build_toml"]["env"]["ENV1"] = "$ZCHOST"
+    buildspec["projects"][0]["build_sh"] += "touch pj.f\n"
+    buildspec["projects"][1]["build_sh"] += "touch pj2.f\n"
+    with base_test_invocator(monkeypatch, buildspec=buildspec, args=["-a"]) \
+            as (skeleton, stdout, stderr):
+        assert "lockfile" in stderr.getvalue()
+        assert "already" in stdout.getvalue()
+        assert (skeleton/"pj.f").exists()
+        assert (skeleton/"pj2.f").exists()
+
+
+def test_help_topics(monkeypatch):
+    """Test for help topics."""
+    try:
+        with base_test_invocator(monkeypatch, args=["-H", "warnings"]) \
+                as (_, stdout, stderr):
+            assert stdout.getvalue() == ""
+            assert "name-mismatch" in stderr.getvalue()
+    except SystemExit:
+        pass
+    else:
+        assert 0, "This test should exit"
+    try:
+        with base_test_invocator(monkeypatch, args=["-H", "nothing"]) \
+                as (_, stdout, stderr):
+            assert stdout.getvalue() == ""
+            assert "topics" in stderr.getvalue()
+    except SystemExit:
+        pass
+    else:
+        assert 0, "This test should exit"
