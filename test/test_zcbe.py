@@ -1,86 +1,155 @@
 """Test for zcbe."""
 
+import io
 import tempfile
 import contextlib
-import subprocess
 from pathlib import Path
+from typing import List
+from copy import deepcopy
 import toml
+import zcbe
+
+# Default build specification
+BS_BASE = {
+    # To test Build's built_toml_filename option
+    "build_toml_filename": "build.toml",
+    "build_toml": {
+        'info': {'build-name': 'name',
+                 'prefix': 'prefix',
+                 'hostname': 'i486-linux-gnu'},
+        'env': {'CC': 'zcbecc',
+                'CFLAGS': '-W -Wall',
+                'LDFLAGS': '-lm'}
+    },
+    "mapping_toml_filename": "mapping.toml",
+    # 2 projects to test
+    "mapping_toml": {'mapping': {'pj': '.', 'pj2': '.'}},
+    "projects": [
+        {
+            "name": "pj",
+            "build_sh": (
+                "#!/bin/sh\n"
+            ),
+            "conf_toml": {
+                'package': {
+                    'name': 'pj',
+                    'ver': '1.0'
+                },
+                'deps': {
+                    'build': [],
+                    'req': []
+                }
+            }
+        },
+        {
+            "name": "pj2",
+            "build_sh": (
+                "#!/bin/sh\n"
+            ),
+            "conf_toml": {
+                'package': {'name': 'pj2', 'ver': '1.0.0'},
+                'deps': {'build': [], 'req': ['pj']}
+            }
+        }
+    ]
+}
 
 
 @contextlib.contextmanager
-def skel():
-    """Create ZCBE directory structure for tests."""
+def skel(buildspec: dict = None):
+    """Create ZCBE directory structure according to buildspec."""
+    if buildspec is None:
+        buildspec = deepcopy(BS_BASE)
     with tempfile.TemporaryDirectory() as dirname:
         tempdir = Path(dirname)
-        build_toml = {'info': {'build-name': 'name',
-                               'prefix': 'prefix',
-                               'hostname': 'i486-linux-gnu',
-                               'mapping': 'm.toml'},
-                      'env': {'CC': 'zcbecc',
-                              'CFLAGS': '-W -Wall',
-                              'LDFLAGS': '-lm',
-                              'env_name': 'env-val'}}
-        toml.dump(build_toml, (tempdir/"build.toml").open("w"))
-        # To test built_toml_filename option
-        toml.dump(build_toml, (tempdir/"b.toml").open("w"))
-        # 2 projects to test
-        mapping_toml = {'mapping': {'pj': '.', 'pj2': '.'}}
-        toml.dump(mapping_toml, (tempdir/"m.toml").open("w"))
+        build_toml = buildspec["build_toml"]
+        build_toml_filename = buildspec["build_toml_filename"]
+        toml.dump(build_toml, (tempdir/build_toml_filename).open("w"))
+        mapping_toml = buildspec["mapping_toml"]
+        mapping_toml_filename = buildspec["mapping_toml_filename"]
+        toml.dump(mapping_toml, (tempdir/mapping_toml_filename).open("w"))
         (tempdir/"zcbe").mkdir()
-        # Mainly for testing minor features
-        (tempdir/"zcbe"/"pj.zcbe").mkdir()
-        with (tempdir/"zcbe"/"pj.zcbe"/"build.sh").open("w") as fil:
-            fil.writelines((
-                "#!/bin/sh\n",
-                "echo $I >> pj.f\n",
-                "echo $CC >> pj.f\n",
-                "echo $CFLAGS >> pj.f\n",
-                "echo $LDFLAGS >> pj.f\n",
-                "echo $env_name >> pj.f\n",
-            ))
-        with (tempdir/"zcbe"/"pj.zcbe"/"conf.toml").open("w") as fil:
-            conf_toml = {
-                'package': {
-                    'name': 'pkg-nm',
-                    'ver': 'pkg-ver'
-                },
-                'deps': {
-                    'build': ['bud1', 'bud2'],
-                    'req': []
-                },
-                'env': {
-                    'I': '${ZCPREF}'
-                }
-            }
-            toml.dump(conf_toml, fil)
-        # Mainly for testing serious features
-        (tempdir/"zcbe"/"pj2.zcbe").mkdir()
-        with (tempdir/"zcbe"/"pj2.zcbe"/"build.sh").open("w") as fil:
-            fil.writelines((
-                "#!/bin/sh\n",
-                "echo $ZCPREF > pj2.f\n",
-                "echo $ZCHOST >> pj2.f\n",
-            ))
-        with (tempdir/"zcbe"/"pj2.zcbe"/"conf.toml").open("w") as fil:
-            conf_toml = {'package': {'name': 'pj2', 'ver': '1.0.0'},
-                         'deps': {'build': ['bud1', 'bud2'], 'req': ['pj']},
-                         'env': {'POSIXLY_CORRECT': '1'}}
-            toml.dump(conf_toml, fil)
+        for proj in buildspec["projects"]:
+            proj_path = tempdir/"zcbe"/(proj["name"]+".zcbe")
+            proj_path.mkdir()
+            with (proj_path/"build.sh").open("w") as fil:
+                fil.write(proj["build_sh"])
+            with (proj_path/"conf.toml").open("w") as fil:
+                conf_toml = proj["conf_toml"]
+                toml.dump(conf_toml, fil)
         yield tempdir
 
 
-def test_zcbe():
-    """Main test routine."""
-    with skel() as skeleton:
-        p = subprocess.Popen(["zcbe", "-sC", skeleton.as_posix(), "pj2"],
-                             stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-                             stderr=subprocess.PIPE)
-        out, err = p.communicate(b"y\ny\n")
-        pjf1 = (skeleton/"pj.f").open().read()
-        pjf2 = (skeleton/"pj2.f").open().read()
-        pjf1_intended = skeleton.resolve().as_posix()
-        pjf1_intended += "/prefix\nzcbecc\n-W -Wall\n-lm\nenv-val\n"
-        pjf2_intended = skeleton.resolve().as_posix()
-        pjf2_intended += "/prefix\ni486-linux-gnu\n"
-        assert pjf1 == pjf1_intended
-        assert pjf2 == pjf2_intended
+@contextlib.contextmanager
+def base_test_invocator(monkeypatch, *, args: List[str] = [],
+                        stdin: io.StringIO = None,
+                        buildspec: dict = None):
+    """Run zcbe with test buildspec."""
+    if stdin is None:
+        stdin = io.StringIO("")
+    with skel(buildspec) as skeleton:
+        stdout = io.StringIO()
+        stderr = io.StringIO()
+        monkeypatch.setattr(
+            "sys.argv", ["zcbe"] + args + ["-C", skeleton.as_posix(), "pj2"])
+        print(args)
+        monkeypatch.setattr("sys.stdin", stdin)
+        monkeypatch.setattr("sys.stderr", stderr)
+        zcbe.start()
+        yield skeleton, stdout, stderr
+
+
+def test_simple(monkeypatch):
+    """Test for logic and syntax errors."""
+    with base_test_invocator(monkeypatch, args=["-s"]) \
+            as (_, _, stderr):
+        assert stderr.getvalue() == ""
+
+
+def test_env(monkeypatch):
+    """Test for environment handling."""
+    buildspec = deepcopy(BS_BASE)
+    buildspec["build_toml"]["env"]["ENV1"] = "$ZCHOST"
+    buildspec["projects"][0]["build_sh"] += "echo $ENV1 >> pj.f\n"
+    buildspec["projects"][1]["conf_toml"]["env"] = {"ENV2": "${ZCPREF}"}
+    buildspec["projects"][1]["build_sh"] += "echo $ZCHOST >> pj2.f\n"
+    buildspec["projects"][1]["build_sh"] += "echo $ENV2 >> pj2.f\n"
+    with base_test_invocator(monkeypatch, buildspec=buildspec) \
+            as (skeleton, _, stderr):
+        prefix = (skeleton/"prefix").resolve().as_posix()
+        assert stderr.getvalue() == ""
+        assert (skeleton/"pj.f").open().read() == "i486-linux-gnu\n"
+        assert (skeleton/"pj2.f").open().read() \
+            == "i486-linux-gnu\n" + prefix + "\n"
+
+
+def test_builddep_prompt(monkeypatch):
+    """Test for build dependency prompt."""
+    stdin = io.StringIO("y\ny\n")
+    buildspec = deepcopy(BS_BASE)
+    buildspec["projects"][0]["conf_toml"]["deps"]["build"].append("bud0")
+    buildspec["projects"][1]["conf_toml"]["deps"]["build"].append("bud1")
+    with base_test_invocator(monkeypatch, stdin=stdin, buildspec=buildspec) \
+            as (_, _, stderr):
+        assert stderr.getvalue() == ""
+
+
+# This only tests basic warning flags. Write warnings' own ones separatedly
+def test_wflag(monkeypatch):
+    """Test for -w, -Wall, -Werror flags."""
+    # A non-existent warning
+    with base_test_invocator(monkeypatch, args=["-Wnothing"]) \
+            as (_, _, stderr):
+        assert "-Wgeneric" in stderr.getvalue()
+    # See if -w works
+    with base_test_invocator(monkeypatch, args=["-w", "-Wnothing"]) \
+            as (_, _, stderr):
+        assert stderr.getvalue() == ""
+    # See if -Werror works
+    try:
+        with base_test_invocator(monkeypatch, args=["-Werror", "-Wnothing"]):
+            pass
+    except SystemExit as err:
+        assert err.__class__ == SystemExit
+        return
+    assert 0, "This test should exit abnormally"
