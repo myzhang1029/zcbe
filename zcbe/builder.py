@@ -126,6 +126,8 @@ class Build:
         if "mapping" in info:
             self._settings["mapping_toml_path"] = \
                 self._settings["build_dir"] / info["mapping"]
+        if not self._settings["mapping_toml_path"].exists():
+            raise MappingTOMLError("mapping toml not found")
         if "env" in bdict:
             edict = bdict["env"]
             # Expand sh-style variable
@@ -161,8 +163,6 @@ class Build:
     async def build_all(self) -> bool:
         """Build all projects in mapping toml."""
         mapping_toml = self._settings["mapping_toml_path"]
-        if not mapping_toml.exists():
-            raise MappingTOMLError("mapping toml not found")
         mapping = toml.load(mapping_toml)["mapping"]
         return await self.build_many(list(mapping))
 
@@ -196,6 +196,20 @@ class Build:
                 eprint(f'Project "{projs[idx]}" raised an exception:')
                 eprint(f"{type(result).__name__}: {result}", title=None)
         return successful
+
+    def show_unbuilt(self) -> bool:
+        """Show all unbuilt projects.
+
+        Return False if everything has been built, otherwise True
+        """
+        mapping_toml = self._settings["mapping_toml_path"]
+        mapping = toml.load(mapping_toml)["mapping"]
+        ret = False
+        for proj in mapping:
+            if not self._dep_manager.check("req", proj):
+                ret = True
+                print(proj)
+        return ret
 
     def get_warner(self) -> ZCBEWarner:
         """Return the internal warner used."""

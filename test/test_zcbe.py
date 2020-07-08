@@ -257,3 +257,20 @@ def test_dry_run(monkeypatch):
             as (skeleton, _, stderr):
         assert stderr.getvalue() == ""
         assert not (skeleton/"pj.f").exists()
+
+
+def test_show_unbuilt_recipe(monkeypatch):
+    """Test for --show-unbuilt and recipe."""
+    with base_test_invocator(monkeypatch, args=["-u"]) \
+            as (_, stdout, stderr):
+        assert stderr.getvalue() == ""
+        assert "pj" in stdout.getvalue()
+        assert "pj2" in stdout.getvalue()
+    with base_test_invocator(monkeypatch, args=["-s"]):
+        monkeypatch.setattr(
+            "sys.argv", ["zcbe", "-u"])
+        monkeypatch.setattr("sys.stdout", stdout)
+        stdout = io.StringIO()
+        zcbe.start()
+        assert stdout.getvalue() == ""
+

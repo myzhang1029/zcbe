@@ -121,6 +121,8 @@ def start():
                         help="Silence make standard output")
     parser.add_argument("-n", "--dry-run", action="store_true",
                         help="Don't actually run any commands")
+    parser.add_argument("-u", "--show-unbuilt", action="store_true",
+                        help="List unbuilt projects and exit")
     parser.add_argument("-H", "--about", type=str, action=AboutAction,
                         help='Help on a topic("topics" for a list of topics)')
     parser.add_argument('projects', metavar='PROJ', nargs='*',
@@ -133,6 +135,8 @@ def start():
                     if_rebuild=namespace.rebuild,
                     if_dryrun=namespace.dry_run,
                     build_toml_filename=namespace.file)
+    if namespace.show_unbuilt:
+        return 0 if builder.show_unbuilt() else 1
     if namespace.all:
         runner = builder.build_all()
     else:
