@@ -16,18 +16,49 @@
 
 """ZCBE builds and projects."""
 
-import os
 import asyncio
 import contextlib
+import os
+import sys
 import textwrap
 from pathlib import Path
 from typing import Dict, List
+
 import toml
-from .env import expandvars as expand
+
 from .dep_manager import DepManager
+from .env import expandvars as expand
+from .exceptions import (BuildError, BuildTOMLError, MappingTOMLError,
+                         ProjectTOMLError, eprint)
 from .warner import ZCBEWarner
-from .exceptions import BuildError, BuildTOMLError, MappingTOMLError, \
-    ProjectTOMLError, eprint
+
+if sys.version_info >= (3, 8):
+    # pylint: disable=no-name-in-module
+    from typing import TypedDict
+else:
+    from typing_extensions import TypedDict
+
+
+class BuildSettings(TypedDict, total=False):
+    """Container for build settings."""
+    # Whether to keep silent
+    silent: bool
+    # Whether to build even if the project has been built
+    rebuild: bool
+    # Whether to dry run
+    dryrun: bool
+    # Top level
+    build_dir: Path
+    # Path() to build.toml
+    build_toml_path: Path
+    # Path() to mapping.toml
+    mapping_toml_path: Path
+    # Name of this build
+    build_name: str
+    # Prefix
+    prefix: Path
+    # Host triplet
+    host: str
 
 
 class Build:
@@ -38,6 +69,7 @@ class Build:
         warner: ZCBE warner
         if_silent: whether to silence make stdout
         if_rebuild: whether to ignore recipe and force rebuild
+        if_dryrun: whether to dry run
         build_toml_filename: override build.toml's file name
     """
 
@@ -49,41 +81,51 @@ class Build:
             *,
             if_silent: bool = False,
             if_rebuild: bool = False,
+            if_dryrun: bool = False,
             build_toml_filename: str = "build.toml"
     ):
         self._warner = warner
-        self._if_silent = if_silent
-        self._if_rebuild = if_rebuild
-        self._build_dir = Path(build_dir).resolve()
-        self._build_toml_filename = build_toml_filename
-        # Default value, can be overridden in build.toml
-        self._mapping_toml_filename = "mapping.toml"
+        build_dir_path = Path(build_dir).resolve()
+        self._settings: BuildSettings = {
+            "silent": if_silent,
+            "rebuild": if_rebuild,
+            "dryrun": if_dryrun,
+            "build_dir": build_dir_path,
+            "build_toml_path": build_dir_path / build_toml_filename,
+            # Default value, can be overridden in build.toml
+            "mapping_toml_path": build_dir_path / "mapping.toml",
+        }
         self.parse_build_toml()
 
     def parse_build_toml(self):
         """Load the build toml (i.e. top level conf) and set envs."""
-        build_toml = self._build_dir / self._build_toml_filename
+        build_toml: Path = self._settings["build_toml_path"]
         if not build_toml.exists():
             raise BuildTOMLError("build toml not found")
         bdict = toml.load(build_toml)
         info = bdict["info"]
         try:
             # Read configuration parameters
-            self._build_name = info["build-name"]
-            self._prefix = Path(info["prefix"]).resolve()
-            self._host = info["hostname"]
+            more_settings = {
+                "build_name": info["build-name"],
+                "prefix": Path(info["prefix"]).resolve(),
+                "host": info["hostname"],
+            }
+            self._settings.update(more_settings)
             # Make sure prefix exists and is a directory
-            self._prefix.mkdir(parents=True, exist_ok=True)
+            self._settings["prefix"].mkdir(parents=True, exist_ok=True)
             # Initialize dependency and built recorder
-            self._dep_manager = DepManager(self._prefix/"zcbe.recipe")
-            os.environ["ZCPREF"] = self._prefix.as_posix()
-            os.environ["ZCHOST"] = self._host
-            os.environ["ZCTOP"] = self._build_dir.as_posix()
+            self._dep_manager = DepManager(
+                self._settings["prefix"] / "zcbe.recipe")
+            os.environ["ZCPREF"] = self._settings["prefix"].as_posix()
+            os.environ["ZCHOST"] = self._settings["host"]
+            os.environ["ZCTOP"] = self._settings["build_dir"].as_posix()
         except KeyError as err:
             raise BuildTOMLError(f"Expected key `info.{err}' not found")
         # Override default mapping file name
         if "mapping" in info:
-            self._mapping_toml_filename = info["mapping"]
+            self._settings["mapping_toml_path"] = \
+                self._settings["build_dir"] / info["mapping"]
         if "env" in bdict:
             edict = bdict["env"]
             # Expand sh-style variable
@@ -95,12 +137,12 @@ class Build:
         Args:
             projname: The name of the project to look up
         """
-        mapping_toml = self._build_dir / self._mapping_toml_filename
+        mapping_toml = self._settings["mapping_toml_path"]
         if not mapping_toml.exists():
             raise MappingTOMLError("mapping toml not found")
         mapping = toml.load(mapping_toml)["mapping"]
         try:
-            return self._build_dir / mapping[proj_name]
+            return self._settings["build_dir"] / mapping[proj_name]
         except KeyError as err:
             raise MappingTOMLError(f'project "{proj_name}" not found') from err
 
@@ -118,7 +160,7 @@ class Build:
 
     async def build_all(self) -> bool:
         """Build all projects in mapping toml."""
-        mapping_toml = self._build_dir / self._mapping_toml_filename
+        mapping_toml = self._settings["mapping_toml_path"]
         if not mapping_toml.exists():
             raise MappingTOMLError("mapping toml not found")
         mapping = toml.load(mapping_toml)["mapping"]
@@ -134,7 +176,7 @@ class Build:
         # Circular dependency TODO
         # if False:
         #     say = f'Circular dependency found near "{proj_name}"'
-        await proj.build(if_rebuild=self._if_rebuild)
+        await proj.build()
 
     async def build_many(self, projs: List[str]) -> bool:
         """Asynchronously build many projects.
@@ -163,6 +205,10 @@ class Build:
         """Return the dependency manager used."""
         return self._dep_manager
 
+    def get_settings(self) -> BuildSettings:
+        """Return the settings dictionary."""
+        return self._settings
+
 
 class Project:
     """Represents a project (see concepts).
@@ -187,7 +233,7 @@ class Project:
         self._builder = builder
         self._warner = builder.get_warner()
         self._dep_manager = builder.get_dep_manager()
-        self._if_silent = builder._if_silent
+        self._settings = builder.get_settings()
         self.parse_conf_toml()
 
     def locate_conf_toml(self) -> Path:
@@ -271,11 +317,8 @@ class Project:
         finally:
             await self.release_lock()
 
-    async def build(self, if_rebuild: bool = False):
+    async def build(self):
         """Solve dependencies and build the project.
-
-        Args:
-            if_rebuild: whether to ignore recipe and force rebuild
         """
         # Solve dependencies recursively
         await self.solve_deps(self._depdict)
@@ -287,7 +330,7 @@ class Project:
         async with self.locked():
             # Check if this project has already been built
             # Skip if if_rebuild is set to True
-            if not if_rebuild and \
+            if not self._settings["rebuild"] and \
                     self._dep_manager.check("req", self._proj_name):
                 print(f"Requirement already satisfied: {self._proj_name}")
                 return
@@ -296,10 +339,11 @@ class Project:
             shpath = buildsh.as_posix()
             os.chdir(self._proj_dir)
             process = await asyncio.create_subprocess_exec(
-                "sh",
+                "sh" if not self._settings["dryrun"] else "true",
                 "-e",
                 shpath,
-                stdout=asyncio.subprocess.DEVNULL if self._if_silent else None,
+                stdout=asyncio.subprocess.DEVNULL
+                if self._settings["silent"] else None,
                 env=environ,
             )
             await process.wait()
@@ -311,5 +355,6 @@ class Project:
                 f"Command 'sh -e {shpath}' returned non-zero exit status"
                 f"{process.returncode}."
             )
-        # write recipe
-        self._dep_manager.add("req", self._proj_name)
+        if not self._settings["dryrun"]:
+            # write recipe
+            self._dep_manager.add("req", self._proj_name)

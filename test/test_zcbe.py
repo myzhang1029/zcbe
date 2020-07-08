@@ -1,12 +1,14 @@
 """Test for zcbe."""
 
+import contextlib
 import io
 import tempfile
-import contextlib
+from copy import deepcopy
 from pathlib import Path
 from typing import List
-from copy import deepcopy
+
 import toml
+
 import zcbe
 
 # Default build specification
@@ -245,3 +247,13 @@ def test_help_topics(monkeypatch):
         pass
     else:
         assert 0, "This test should exit"
+
+
+def test_dry_run(monkeypatch):
+    """Test for --dry-run."""
+    buildspec = deepcopy(BS_BASE)
+    buildspec["projects"][0]["build_sh"] += "echo $ENV1 >> pj.f\n"
+    with base_test_invocator(monkeypatch, buildspec=buildspec, args=["-n"]) \
+            as (skeleton, _, stderr):
+        assert stderr.getvalue() == ""
+        assert not (skeleton/"pj.f").exists()

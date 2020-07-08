@@ -21,13 +21,14 @@ Concepts:
     a projects is just a program/package
 """
 
-import os
-import sys
 import argparse
 import asyncio
+import os
+import sys
+
+from .builder import Build
 from .exceptions import eprint
 from .warner import ZCBEWarner
-from .builder import Build
 
 # All available types of warnings (gcc-like)
 ALL_WARNINGS = {
@@ -118,6 +119,8 @@ def start():
                         help="Build all projects in mapping.toml")
     parser.add_argument("-s", "--silent", action="store_true",
                         help="Silence make standard output")
+    parser.add_argument("-n", "--dry-run", action="store_true",
+                        help="Don't actually run any commands")
     parser.add_argument("-H", "--about", type=str, action=AboutAction,
                         help='Help on a topic("topics" for a list of topics)')
     parser.add_argument('projects', metavar='PROJ', nargs='*',
@@ -128,6 +131,7 @@ def start():
     # Create builder instance
     builder = Build(".", warner, if_silent=namespace.silent,
                     if_rebuild=namespace.rebuild,
+                    if_dryrun=namespace.dry_run,
                     build_toml_filename=namespace.file)
     if namespace.all:
         runner = builder.build_all()
