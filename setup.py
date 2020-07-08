@@ -39,6 +39,9 @@ setup(
     python_requires='>=3.7',
     packages=["zcbe"],
     install_requires=["toml"],
+    extras_require={
+        ":python_version<'3.8'": ["typing_extensions"]
+    },
     entry_points={
         "console_scripts": [
             "zcbe = zcbe:start"
