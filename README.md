@@ -1,6 +1,7 @@
 # zcbe
 
 [![Build Status](https://travis-ci.com/myzhang1029/zcbe.svg)](https://travis-ci.com/myzhang1029/zcbe)
+![Python package](https://github.com/myzhang1029/zcbe/workflows/Python%20package/badge.svg)
 [![codecov](https://codecov.io/gh/myzhang1029/zcbe/branch/master/graph/badge.svg)](https://codecov.io/gh/myzhang1029/zcbe)
 [![Maintainability](https://api.codeclimate.com/v1/badges/e8785246f7dbe7676393/maintainability)](https://codeclimate.com/github/myzhang1029/zcbe/maintainability)
 ## Introduction
