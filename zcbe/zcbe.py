@@ -56,13 +56,15 @@ TOPICS = {
               "warnings: All available warnings\n"
               "lockfile: Help about lock files\n",
     "warnings": WARNINGS_HELP,
-    "lockfile": "ZCBE builds multiple projects concurrently, so a lock file"
-                " is created to avoid building the same project at the same"
-                " time. So you usually don't have to worry about"
-                " -Wlock-exists. However, if this warning persists, or you"
-                " believe something wrong has happened, you should kill the"
-                " process, remove the lock file, and check if everything is"
-                " OK.",
+    "lockfile": textwrap.fill("ZCBE builds multiple projects concurrently,"
+                              " so a lock file is created to avoid building"
+                              " the same project at the same time. Therefore,"
+                              " you usually don't have to worry about getting"
+                              " -Wlock-exists. However, if this warning"
+                              " persists, or you believe something wrong has"
+                              " happened, you might want to kill the process,"
+                              " remove the lock file, and check if everything"
+                              " is OK."),
 }
 
 
@@ -76,7 +78,7 @@ class AboutAction(argparse.Action):
     def __call__(self, parser, namespace, values, option_string=None):
         name = values[0]
         try:
-            eprint('\n'.join(textwrap.wrap(TOPICS[name])), title="")
+            eprint(TOPICS[name], title="")
         except KeyError:
             eprint(f'No such topic "{name}", try "topics" for available ones')
         sys.exit(0)
