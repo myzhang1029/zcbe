@@ -13,8 +13,8 @@ It comes with concurrent building, dependency tracking and other useful features
 TODO
 ### CLI Usage
 ```
-zcbe [-h] [-w] [-W WARNING] [-B] [-C CHDIR] [-f FILE] [-a] [-s]
-            [-H ABOUT]
+zcbe [-h] [-w] [-W WARNING] [-B] [-C CHDIR] [-o FILE] [-e FILE]
+            [-f FILE] [-a] [-s] [-n] [-u] [-H ABOUT]
             [PROJ [PROJ ...]]
 
 The Z Cross Build Environment
@@ -26,13 +26,23 @@ optional arguments:
   -h, --help            show this help message and exit
   -w                    Suppress all warnings
   -W WARNING            Modify warning behavior
-  -B, --rebuild         Force build requested projects and dependencies
-  -C CHDIR, --chdir CHDIR
+  -B, --rebuild, --always-make, --always-build
+                        Force build requested projects and dependencies
+  -C CHDIR, --chdir CHDIR, --directory CHDIR
                         Change directory to
-  -f FILE, --file FILE  Read FILE as build.toml
+  -o FILE, --stdout-to FILE
+                        Redirect stdout to FILE ('{n}' expands to the name of
+                        the project)
+  -e FILE, --stderr-to FILE
+                        Redirect stderr to FILE ('{n}' expands to the name of
+                        the project)
+  -f FILE, --file FILE, --build-toml FILE
+                        Read FILE as build.toml
   -a, --all             Build all projects in mapping.toml
-  -s, --silent          Silence make standard output
+  -s, --silent          Silence make standard output(short for -o /dev/null)
+  -n, --dry-run, --just-print, --recon
+                        Don't actually run any commands
+  -u, --show-unbuilt    List unbuilt projects and exit
   -H ABOUT, --about ABOUT
                         Help on a topic("topics" for a list of topics)
 ```
-
