@@ -110,21 +110,26 @@ def start():
                         action=WarningsAction, nargs=0)
     parser.add_argument("-W", metavar="WARNING",
                         help="Modify warning behavior", action=WarningsAction)
-    parser.add_argument("-B", "--rebuild", action="store_true",
+    parser.add_argument("-B", "--rebuild", "--always-make", "--always-build",
+                        action="store_true",
                         help="Force build requested projects and dependencies")
-    parser.add_argument("-C", "--chdir", type=str, help="Change directory to")
-    parser.add_argument("-o", "--stdout-to", type=str, help="Redirect stdout "
-                        "to ('{n}' expands to the name of the project)")
-    parser.add_argument("-e", "--stderr-to", type=str, help="Redirect stderr "
-                        "to ('{n}' expands to the name of the project)")
-    parser.add_argument("-f", "--file", type=str, default="build.toml",
-                        help="Read FILE as build.toml")
+    parser.add_argument("-C", "--chdir", "--directory", type=str,
+                        help="Change directory to")
+    parser.add_argument("-o", "--stdout-to", metavar="FILE", type=str,
+                        help="Redirect stdout to FILE"
+                        " ('{n}' expands to the name of the project)")
+    parser.add_argument("-e", "--stderr-to", metavar="FILE", type=str,
+                        help="Redirect stderr to FILE"
+                        " ('{n}' expands to the name of the project)")
+    parser.add_argument("-f", "--file", "--build-toml", type=str,
+                        default="build.toml", help="Read FILE as build.toml")
     parser.add_argument("-a", "--all", action="store_true",
                         help="Build all projects in mapping.toml")
     parser.add_argument("-s", "--silent", action="store_true",
                         help="Silence make standard output"
                         "(short for -o /dev/null)")
-    parser.add_argument("-n", "--dry-run", action="store_true",
+    parser.add_argument("-n", "--dry-run", "--just-print", "--recon",
+                        action="store_true",
                         help="Don't actually run any commands")
     parser.add_argument("-u", "--show-unbuilt", action="store_true",
                         help="List unbuilt projects and exit")
