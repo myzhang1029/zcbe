@@ -273,4 +273,3 @@ def test_show_unbuilt_recipe(monkeypatch):
         stdout = io.StringIO()
         zcbe.start()
         assert stdout.getvalue() == ""
-

@@ -22,7 +22,7 @@ import os
 import sys
 import textwrap
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Optional, TextIO
 
 import toml
 
@@ -41,12 +41,14 @@ else:
 
 class BuildSettings(TypedDict, total=False):
     """Container for build settings."""
-    # Whether to keep silent
-    silent: bool
     # Whether to build even if the project has been built
     rebuild: bool
     # Whether to dry run
     dryrun: bool
+    # Stdout filenames
+    stdout: Optional[str]
+    # Stderr filename
+    stderr: Optional[str]
     # Top level
     build_dir: Path
     # Path() to build.toml
@@ -67,7 +69,6 @@ class Build:
     Args:
         build_dir: Directory of the build root
         warner: ZCBE warner
-        if_silent: whether to silence make stdout
         if_rebuild: whether to ignore recipe and force rebuild
         if_dryrun: whether to dry run
         build_toml_filename: override build.toml's file name
@@ -79,25 +80,28 @@ class Build:
             build_dir: str,
             warner: ZCBEWarner,
             *,
-            if_silent: bool = False,
             if_rebuild: bool = False,
             if_dryrun: bool = False,
-            build_toml_filename: str = "build.toml"
+            build_toml_filename: str = "build.toml",
+            stdout: Optional[str] = None,
+            stderr: Optional[str] = None
+
     ):
         self._warner = warner
         build_dir_path = Path(build_dir).resolve()
         self._settings: BuildSettings = {
-            "silent": if_silent,
             "rebuild": if_rebuild,
             "dryrun": if_dryrun,
+            "stdout": stdout,
+            "stderr": stderr,
             "build_dir": build_dir_path,
             "build_toml_path": build_dir_path / build_toml_filename,
             # Default value, can be overridden in build.toml
             "mapping_toml_path": build_dir_path / "mapping.toml",
         }
-        self.parse_build_toml()
+        self._parse_build_toml()
 
-    def parse_build_toml(self):
+    def _parse_build_toml(self):
         """Load the build toml (i.e. top level conf) and set envs."""
         build_toml: Path = self._settings["build_toml_path"]
         if not build_toml.exists():
@@ -230,7 +234,7 @@ class Project:
     Args:
         proj_dir: the directory to the project
         proj_name: the name in mapping toml of the project
-        builder: used to resolve dependencies, get warner and if_silent
+        builder: used to resolve dependencies, get warner and settings
     """
 
     # pylint: disable=too-many-instance-attributes
@@ -248,7 +252,7 @@ class Project:
         self._warner = builder.get_warner()
         self._dep_manager = builder.get_dep_manager()
         self._settings = builder.get_settings()
-        self.parse_conf_toml()
+        self._parse_conf_toml()
 
     def locate_conf_toml(self) -> Path:
         """Try to locate conf.toml.
@@ -276,7 +280,7 @@ class Project:
                 if not await self._builder.build_many(depdict[table]):
                     raise BuildError("Dependency failed to build, stopping.")
 
-    def parse_conf_toml(self):
+    def _parse_conf_toml(self):
         """Load the conf toml and set envs."""
         # Make sure of conf.toml's presence
         conf_toml = self.locate_conf_toml()
@@ -331,6 +335,16 @@ class Project:
         finally:
             await self.release_lock()
 
+    async def _get_stdout(self) -> Optional[TextIO]:
+        """Get stdout after expanding {n} to self._proj_name."""
+        stdout = self._settings["stdout"]
+        return open(stdout.format(n=self._proj_name), "a") if stdout else None
+
+    async def _get_stderr(self) -> Optional[TextIO]:
+        """Get stderr after expanding {n} to self._proj_name."""
+        stderr = self._settings["stderr"]
+        return open(stderr.format(n=self._proj_name), "a") if stderr else None
+
     async def build(self):
         """Solve dependencies and build the project.
         """
@@ -356,8 +370,8 @@ class Project:
                 "sh" if not self._settings["dryrun"] else "true",
                 "-e",
                 shpath,
-                stdout=asyncio.subprocess.DEVNULL
-                if self._settings["silent"] else None,
+                stdout=await self._get_stdout(),
+                stderr=await self._get_stderr(),
                 env=environ,
             )
             await process.wait()

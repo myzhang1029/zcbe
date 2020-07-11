@@ -113,12 +113,17 @@ def start():
     parser.add_argument("-B", "--rebuild", action="store_true",
                         help="Force build requested projects and dependencies")
     parser.add_argument("-C", "--chdir", type=str, help="Change directory to")
+    parser.add_argument("-o", "--stdout-to", type=str, help="Redirect stdout "
+                        "to ('{n}' expands to the name of the project)")
+    parser.add_argument("-e", "--stderr-to", type=str, help="Redirect stderr "
+                        "to ('{n}' expands to the name of the project)")
     parser.add_argument("-f", "--file", type=str, default="build.toml",
                         help="Read FILE as build.toml")
     parser.add_argument("-a", "--all", action="store_true",
                         help="Build all projects in mapping.toml")
     parser.add_argument("-s", "--silent", action="store_true",
-                        help="Silence make standard output")
+                        help="Silence make standard output"
+                        "(short for -o /dev/null)")
     parser.add_argument("-n", "--dry-run", action="store_true",
                         help="Don't actually run any commands")
     parser.add_argument("-u", "--show-unbuilt", action="store_true",
@@ -130,11 +135,14 @@ def start():
     namespace = parser.parse_args()
     if namespace.chdir:
         os.chdir(namespace.chdir)
+    if namespace.silent:
+        namespace.stdout_to = os.devnull
     # Create builder instance
-    builder = Build(".", warner, if_silent=namespace.silent,
-                    if_rebuild=namespace.rebuild,
+    builder = Build(".", warner, if_rebuild=namespace.rebuild,
                     if_dryrun=namespace.dry_run,
-                    build_toml_filename=namespace.file)
+                    build_toml_filename=namespace.file,
+                    stdout=namespace.stdout_to,
+                    stderr=namespace.stderr_to)
     if namespace.show_unbuilt:
         return 0 if builder.show_unbuilt() else 1
     if namespace.all:
