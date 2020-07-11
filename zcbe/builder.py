@@ -20,7 +20,6 @@ import asyncio
 import contextlib
 import os
 import sys
-import textwrap
 from pathlib import Path
 from typing import Dict, List, Optional, TextIO
 
@@ -310,13 +309,8 @@ class Project:
         """Acquires project build lock."""
         lockfile = self._proj_dir / "zcbe.lock"
         while lockfile.exists():
-            message = (f"The lockfile for project {self._proj_name} exists. "
-                       "This is usually not a worry, as ZCBE builds multiple "
-                       "projects simultaneously. If this warning persists "
-                       "for a long while, please kill this process and "
-                       f'remove the lock file "{lockfile}" '
-                       "by yourself, and check if everything is OK.")
-            eprint('\n'.join(textwrap.wrap(message, 75)), title="Warning: ")
+            self._warner.warn("lock-exists",
+                              f"Lock file {lockfile} exists")
             await asyncio.sleep(10)
         lockfile.touch()
 

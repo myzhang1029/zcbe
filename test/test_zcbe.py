@@ -220,9 +220,7 @@ def test_build_all(monkeypatch):
     buildspec["projects"][0]["build_sh"] += "touch pj.f\n"
     buildspec["projects"][1]["build_sh"] += "touch pj2.f\n"
     with base_test_invocator(monkeypatch, buildspec=buildspec, args=["-a"]) \
-            as (skeleton, stdout, stderr):
-        assert "lockfile" in stderr.getvalue()
-        assert "already" in stdout.getvalue()
+            as (skeleton, _, _):
         assert (skeleton/"pj.f").exists()
         assert (skeleton/"pj2.f").exists()
 

@@ -25,6 +25,7 @@ import argparse
 import asyncio
 import os
 import sys
+import textwrap
 
 from .builder import Build
 from .exceptions import eprint
@@ -34,6 +35,7 @@ from .warner import ZCBEWarner
 ALL_WARNINGS = {
     "name-mismatch": "The project's name specified in conf.toml "
                      "mismatches with that in mapping.toml",
+    "lock-exists": "The lock file for a file exists (see zcbe -H lockfile)",
     "generic": "Warnings about ZCBE itself",
     "error": "Error all warnings",
     "all": "Show all warnings",
@@ -51,8 +53,16 @@ DEFAULT_WARNINGS = set((
 # Help topics and their help message
 TOPICS = {
     "topics": "topics: This list of topics\n"
-              "warnings: All available warnings\n",
+              "warnings: All available warnings\n"
+              "lockfile: Help about lock files\n",
     "warnings": WARNINGS_HELP,
+    "lockfile": "ZCBE builds multiple projects concurrently, so a lock file"
+                " is created to avoid building the same project at the same"
+                " time. So you usually don't have to worry about"
+                " -Wlock-exists. However, if this warning persists, or you"
+                " believe something wrong has happened, you should kill the"
+                " process, remove the lock file, and check if everything is"
+                " OK.",
 }
 
 
@@ -66,7 +76,7 @@ class AboutAction(argparse.Action):
     def __call__(self, parser, namespace, values, option_string=None):
         name = values[0]
         try:
-            eprint(TOPICS[name], title="")
+            eprint('\n'.join(textwrap.wrap(TOPICS[name])), title="")
         except KeyError:
             eprint(f'No such topic "{name}", try "topics" for available ones')
         sys.exit(0)
