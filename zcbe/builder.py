@@ -376,13 +376,13 @@ class Project:
             )
             await process.wait()
             print(f"Leaving project {self._proj_name}")
-        if process.returncode:
-            # Build failed
-            # Lock is still released as no one is writing to that directory
-            raise BuildError(
-                f"Command 'sh -e {shpath}' returned non-zero exit status"
-                f"{process.returncode}."
-            )
-        if not self._settings["dryrun"]:
-            # write recipe
-            self._dep_manager.add("req", self._proj_name)
+            if process.returncode:
+                # Build failed
+                # Lock is still released as no one is writing to that directory
+                raise BuildError(
+                    f"Command 'sh -e {shpath}' returned non-zero exit status "
+                    f"{process.returncode}."
+                )
+            if not self._settings["dryrun"]:
+                # write recipe
+                self._dep_manager.add("req", self._proj_name)
