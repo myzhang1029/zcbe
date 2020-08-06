@@ -62,6 +62,41 @@ class BuildSettings(TypedDict, total=False):
     host: str
 
 
+class BuildBusEntry:
+    """Record a project's status."""
+    # A event that will be set on build finish (either succeed or fail)
+    event: asyncio.Event
+    # The build task
+    task: asyncio.Task
+    # Whether the build succeeded
+    success: bool
+    # The failure message
+    message: Optional[str]
+
+    def __init__(self):
+        self.event = asyncio.Event()
+
+    def set_task(self, task: asyncio.Task):
+        """Set build task."""
+        self.task = task
+
+    def fail(self, message: Optional[str] = None):
+        """Tell others that this build failed."""
+        self.success = False
+        self.message = message
+        self.event.set()
+
+    def succeed(self):
+        """Tell others that this build succeeded."""
+        self.success = True
+        self.event.set()
+
+    async def wait(self) -> bool:
+        """Wait for this build to finish."""
+        await self.event.wait()
+        return self.success
+
+
 class Build:
     """Represents a build (see concepts).
 
@@ -98,6 +133,7 @@ class Build:
             # Default value, can be overridden in build.toml
             "mapping_toml_path": build_dir_path / "mapping.toml",
         }
+        self._build_bus: Dict[str, BuildBusEntry] = {}
         self._parse_build_toml()
 
     def _parse_build_toml(self):
@@ -169,17 +205,26 @@ class Build:
         mapping = toml.load(mapping_toml)["mapping"]
         return await self.build_many(list(mapping))
 
-    async def build(self, proj_name: str):
+    async def build(self, proj_name: str) -> BuildBusEntry:
         """Build a project.
 
         Args:
             proj_name: the name of the project
+
+        Return:
+            The BuildBusEntry for tracking build status
         """
+        # A build already in progress
+        if proj_name in self._build_bus:
+            return self._build_bus["proj_name"]
         proj = self.get_proj(proj_name)
+        bus_entry = BuildBusEntry()
         # Circular dependency TODO
         # if False:
         #     say = f'Circular dependency found near "{proj_name}"'
-        await proj.build()
+        build_task = asyncio.create_task(proj.build(bus_entry=bus_entry))
+        bus_entry.set_task(build_task)
+        return bus_entry
 
     async def build_many(self, projs: List[str]) -> bool:
         """Asynchronously build many projects.
@@ -188,16 +233,20 @@ class Build:
             projs: List of project names to be built
 
         Return:
-            whether the operations didn't raise anything.
+            whether all projects succeeded.
         """
         successful = True
+        bus_entries = await asyncio.gather(
+            *(self.build(item) for item in projs)
+        )
         results = await asyncio.gather(
-            *(self.build(item) for item in projs), return_exceptions=True)
+            *(item.wait() for item in bus_entries)
+        )
         for idx, result in enumerate(results):
-            if result is not None:
+            if not result:
                 successful = False
-                eprint(f'Project "{projs[idx]}" raised an exception:')
-                eprint(f"{type(result).__name__}: {result}", title=None)
+                eprint(f'Project "{projs[idx]}" failed:')
+                eprint(bus_entries[idx].message, title=None)
         return successful
 
     def show_unbuilt(self) -> bool:
@@ -269,15 +318,33 @@ class Project:
             return local_try
         raise ProjectTOMLError("conf.toml not found")
 
-    async def solve_deps(self, depdict: Dict[str, List[str]]):
-        """Solve dependencies."""
+    async def solve_deps(self,
+                         depdict: Dict[str, List[str]],
+                         canraise: bool = True) -> Optional[str]:
+        """Solve dependencies.
+
+        Args:
+            depdict: dependency dictionary
+            canraise: whether I'm supposed to raise.
+
+        Return:
+            None if canraise, otherwise:
+            None if everything succeeded;
+            Error string if something failed.
+        """
+        message = "Dependency failed to build, stopping."
         for table in depdict:
             if table == "build":
                 for item in depdict[table]:
                     self._dep_manager.check(table, item)
-            else:
-                if not await self._builder.build_many(depdict[table]):
-                    raise BuildError("Dependency failed to build, stopping.")
+            elif not await self._builder.build_many(depdict[table]):
+                # table != "build"
+                if canraise:
+                    raise BuildError(message)
+                # else:
+                return message
+            # table == "build" or build_many returned True
+        return None
 
     def _parse_conf_toml(self):
         """Load the conf toml and set envs."""
@@ -339,11 +406,18 @@ class Project:
         stderr = self._settings["stderr"]
         return open(stderr.format(n=self._proj_name), "a") if stderr else None
 
-    async def build(self):
+    async def build(self, *, bus_entry: BuildBusEntry = None):
         """Solve dependencies and build the project.
+
+        Args:
+            event: an asyncio.Event to be set on finish
         """
         # Solve dependencies recursively
-        await self.solve_deps(self._depdict)
+        message_maybe = await self.solve_deps(self._depdict,
+                                              canraise=not bus_entry)
+        if message_maybe and bus_entry:
+            # bus_entry must not be None, but linter will be unhappy
+            bus_entry.fail(message_maybe)
         # Not infecting the environ of other projects
         # Expand sh-style variable
         environ = {**os.environ, **
@@ -355,8 +429,11 @@ class Project:
             if not self._settings["rebuild"] and \
                     self._dep_manager.check("req", self._proj_name):
                 print(f"Requirement already satisfied: {self._proj_name}")
+                if bus_entry:
+                    bus_entry.succeed()
                 return
             print(f"Entering project {self._proj_name}")
+            # START #3 TODO
             buildsh = self.locate_conf_toml().parent / "build.sh"
             shpath = buildsh.as_posix()
             os.chdir(self._proj_dir)
@@ -368,15 +445,22 @@ class Project:
                 stderr=await self._get_stderr(),
                 env=environ,
             )
+            # END #3 TODO
             await process.wait()
             print(f"Leaving project {self._proj_name}")
-            if process.returncode:
-                # Build failed
-                # Lock is still released as no one is writing to that directory
-                raise BuildError(
-                    f"Command 'sh -e {shpath}' returned non-zero exit status "
-                    f"{process.returncode}."
-                )
-            if not self._settings["dryrun"]:
-                # write recipe
-                self._dep_manager.add("req", self._proj_name)
+        if process.returncode:
+            # Build failed
+            # Lock is still released as no one is writing to that directory
+            message = (
+                f"Command 'sh -e {shpath}' returned non-zero exit status"
+                f" {process.returncode}."
+            )
+            if bus_entry:
+                bus_entry.fail(message=message)
+            else:
+                raise BuildError(message)
+        if not self._settings["dryrun"]:
+            # write recipe
+            self._dep_manager.add("req", self._proj_name)
+        if bus_entry:
+            bus_entry.succeed()
