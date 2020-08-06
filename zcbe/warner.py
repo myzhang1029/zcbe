@@ -26,7 +26,10 @@ class ZCBEWarner:
     """A simple warner for ZCBE."""
 
     def __init__(self):
-        self.options = {}
+        self.options = {
+            "error": False,
+            "all": True,
+        }
         self.silent = False
         self.all = False
 
