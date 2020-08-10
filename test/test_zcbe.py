@@ -2,6 +2,7 @@
 
 import contextlib
 import io
+import json
 import tempfile
 from copy import deepcopy
 from pathlib import Path
@@ -10,6 +11,10 @@ from typing import List
 import toml
 
 import zcbe
+
+# Put into the with stmt if debug
+# __import__("subprocess").run(["cp", "-r", skeleton.as_posix(),
+# Path('~').expanduser()])
 
 # Default build specification
 BS_BASE = {
@@ -257,8 +262,8 @@ def test_dry_run(monkeypatch):
         assert not (skeleton/"pj.f").exists()
 
 
-def test_show_unbuilt_recipe(monkeypatch):
-    """Test for --show-unbuilt and recipe."""
+def test_show_unbuilt(monkeypatch):
+    """Test for --show-unbuilt."""
     with base_test_invocator(monkeypatch, args=["-u"]) \
             as (_, stdout, stderr):
         assert stderr.getvalue() == ""
@@ -271,3 +276,15 @@ def test_show_unbuilt_recipe(monkeypatch):
         stdout = io.StringIO()
         zcbe.start()
         assert stdout.getvalue() == ""
+
+
+def test_recipe(monkeypatch):
+    """Test for writing recipe upon success and failure."""
+    buildspec = deepcopy(BS_BASE)
+    # Let pj2 fail
+    buildspec["projects"][1]["build_sh"] = "#!/bin/sh\nexit 1"
+    with base_test_invocator(monkeypatch, buildspec=buildspec, args=["-s"]) \
+            as (skeleton, _, _):
+        recipe = json.load((skeleton/"prefix/zcbe.recipe").open())
+        # No pj2 but has pj
+        assert recipe["req"] == {"pj": True}
