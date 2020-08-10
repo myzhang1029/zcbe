@@ -391,7 +391,7 @@ class Project:
             # END #3 TODO
             await process.wait()
             print(f"Leaving project {self._proj_name} with status "
-                  "{process.returncode}")
+                  f"{process.returncode}")
         if process.returncode:
             # Build failed
             # Lock is still released as no one is writing to that directory
