@@ -1,9 +1,6 @@
 """Test for warnings."""
 
-import io
 from copy import deepcopy
-
-import zcbe
 
 from .test_zcbe import BS_BASE, base_test_invocator
 

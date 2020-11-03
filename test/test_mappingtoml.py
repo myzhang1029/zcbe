@@ -1,7 +1,4 @@
-
 """Test for mappiing.toml handling."""
-
-import io
 from copy import deepcopy
 
 import zcbe
@@ -56,13 +53,3 @@ def test_mappingtoml_keymissing(monkeypatch):
     except zcbe.exceptions.MappingTOMLError:
         return
     assert 0, "This test should raise"
-
-
-def test_mapping(monkeypatch):
-    """Test for mapping.toml override."""
-    buildspec = deepcopy(BS_BASE)
-    buildspec["mapping_toml_filename"] = "m.toml"
-    buildspec["build_toml"]["info"]["mapping"] = "m.toml"
-    with base_test_invocator(monkeypatch, buildspec=buildspec) \
-            as (_, _, stderr):
-        assert stderr.getvalue() == ""
