@@ -136,6 +136,15 @@ class Build:
             edict = bdict["env"]
             # Expand sh-style variable
             os.environ.update({k: expand(edict[k]) for k in edict})
+        # Build-wide dependency - only build key is allowed
+        if "deps" in bdict:
+            for key in bdict["deps"]:
+                if key != "build":
+                    raise BuildTOMLError("Unexpected global dependency type "
+                                         f"`deps.{key}'. Only \"build\" "
+                                         "dependencies are allowed here")
+                for item in bdict["deps"]["build"]:
+                    self._dep_manager.check("build", item)
 
     def get_proj_path(self, proj_name: str) -> Path:
         """Get a project's root directory by looking up mapping toml.
