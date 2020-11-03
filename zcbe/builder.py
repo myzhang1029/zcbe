@@ -125,7 +125,8 @@ class Build:
             os.environ["ZCHOST"] = self._settings["host"]
             os.environ["ZCTOP"] = self._settings["build_dir"].as_posix()
         except KeyError as err:
-            raise BuildTOMLError(f"Expected key `info.{err}' not found")
+            raise BuildTOMLError(
+                f"Expected key `info.{err}' not found") from err
         # Override default mapping file name
         if "mapping" in info:
             self._settings["mapping_toml_path"] = \
@@ -330,7 +331,8 @@ class Project:
                 )
             self._version = pkg["ver"]
         except KeyError as err:
-            raise ProjectTOMLError(f"Expected key `package.{err}' not found")
+            raise ProjectTOMLError(
+                f"Expected key `package.{err}' not found") from err
         self._depdict = cdict["deps"] if "deps" in cdict else {}
         self._envdict = cdict["env"] if "env" in cdict else {}
 
