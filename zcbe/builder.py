@@ -102,7 +102,7 @@ class Build:
         self._parse_build_toml()
 
     def _parse_build_toml(self):
-        """Load the build toml (i.e. top level conf) and set envs."""
+        """Load the build toml (i.e. top level conf) and set environ."""
         build_toml: Path = self._settings["build_toml_path"]
         if not build_toml.exists():
             raise BuildTOMLError("build toml not found")
@@ -191,12 +191,13 @@ class Build:
         """
         # A build already in progress
         if proj_name in self._build_bus:
-            return self._build_bus["proj_name"]
+            return self._build_bus[proj_name]
         proj = self.get_proj(proj_name)
         # Circular dependency TODO
         # if False:
         #     say = f'Circular dependency found near "{proj_name}"'
         build_task = asyncio.create_task(proj.build())
+        self._build_bus[proj_name] = build_task
         return build_task
 
     async def build_many(self, projs: List[str]) -> bool:
@@ -212,12 +213,11 @@ class Build:
             # Filter out empty build requests
             return True
         successful = True
-        tasks = await asyncio.gather(
-            *(self.build(item) for item in projs)
+        exceptions = await asyncio.gather(
+            *(self.build(item) for item in projs),
+            return_exceptions=True
         )
-        await asyncio.wait(tasks)
-        for idx, task in enumerate(tasks):
-            exception_maybe = task.exception()
+        for idx, exception_maybe in enumerate(exceptions):
             if exception_maybe:
                 successful = False
                 eprint(f'Project "{projs[idx]}" failed:')
