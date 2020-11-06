@@ -180,7 +180,16 @@ class Build:
         mapping = toml.load(mapping_toml)["mapping"]
         return await self.build_many(list(mapping))
 
-    async def build(self, proj_name: str) -> asyncio.Task:
+    async def _build_proj_wrapper(self, proj_name: str):
+        """A single coroutine including everything about calling Project.build.
+
+        Args:
+            proj_name: the name of the project
+        """
+        proj = self.get_proj(proj_name)
+        await proj.build()
+
+    def build(self, proj_name: str) -> asyncio.Task:
         """Build a project.
 
         Args:
@@ -192,11 +201,7 @@ class Build:
         # A build already in progress
         if proj_name in self._build_bus:
             return self._build_bus[proj_name]
-        proj = self.get_proj(proj_name)
-        # Circular dependency TODO
-        # if False:
-        #     say = f'Circular dependency found near "{proj_name}"'
-        build_task = asyncio.create_task(proj.build())
+        build_task = asyncio.create_task(self._build_proj_wrapper(proj_name))
         self._build_bus[proj_name] = build_task
         return build_task
 
@@ -213,11 +218,10 @@ class Build:
             # Filter out empty build requests
             return True
         successful = True
-        exceptions = await asyncio.gather(
-            *(self.build(item) for item in projs),
-            return_exceptions=True
-        )
-        for idx, exception_maybe in enumerate(exceptions):
+        tasks = [self.build(item) for item in projs]
+        await asyncio.wait(tasks)
+        for idx, task in enumerate(tasks):
+            exception_maybe = task.exception()
             if exception_maybe:
                 successful = False
                 eprint(f'Project "{projs[idx]}" failed:')
@@ -269,7 +273,7 @@ class Project:
         self._proj_dir = Path(proj_dir)
         if not self._proj_dir.is_dir():
             raise MappingTOMLError(
-                f"project {proj_name} not found at {proj_dir}")
+                f'project "{proj_name}" not found at {proj_dir}')
         self._proj_name = proj_name
         self._builder = builder
         self._warner = builder.get_warner()
@@ -300,6 +304,9 @@ class Project:
             depdict: dependency dictionary
         """
         message = "Dependency failed to build, stopping."
+        # Circular dependency TODO
+        # if False:
+        #     say = f"Circular dependency found near {proj_name}"
         for table in depdict:
             if table == "build":
                 for item in depdict[table]:
@@ -313,8 +320,6 @@ class Project:
         """Load the conf toml and set envs."""
         # Make sure of conf.toml's presence
         conf_toml = self.locate_conf_toml()
-        if not conf_toml.exists():
-            raise ProjectTOMLError("conf.toml not found")
         # TOML decode the file
         cdict = toml.load(conf_toml)
         pkg = cdict["package"]
@@ -326,8 +331,7 @@ class Project:
                 # possibly some other adaptations haven't been done
                 self._warner.warn(
                     "name-mismatch",
-                    f'"{self._package_name}" mismatches with '
-                    f'{self._proj_name}"'
+                    f"{self._package_name} mismatches with {self._proj_name}"
                 )
             self._version = pkg["ver"]
         except KeyError as err:
@@ -407,7 +411,7 @@ class Project:
             # Build failed
             # Lock is still released as no one is writing to that directory
             message = (
-                f"Command 'sh -e {shpath}' returned non-zero exit status"
+                f'Command "sh -e {shpath}" returned non-zero exit status'
                 f" {process.returncode}."
             )
             raise BuildError(message)
