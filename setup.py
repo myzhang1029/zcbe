@@ -21,7 +21,7 @@ from setuptools import setup
 
 setup(
     name="zcbe",
-    version="0.4.2",
+    version="0.4.3",
     description="The Z Cross Build Environment",
     long_description=open("README.md").read(),
     long_description_content_type="text/markdown",
