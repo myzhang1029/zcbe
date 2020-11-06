@@ -27,7 +27,7 @@ import os
 import sys
 import textwrap
 
-from .builder import Build
+from .build import Build
 from .exceptions import eprint
 from .warner import ZCBEWarner
 
