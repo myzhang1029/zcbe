@@ -36,7 +36,7 @@ def expandvars(string):
     replacer = '\0'
     while replacer in string:
         # loop is guaranteed to exit as len(string) is finite
-        replacer *= 2
+        replacer *= 2 # pragma: no cover
 
     string = string.replace('\\$', replacer)
 
