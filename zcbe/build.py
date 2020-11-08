@@ -17,7 +17,6 @@
 """ZCBE build."""
 
 import asyncio
-import contextlib
 import os
 import sys
 from pathlib import Path
@@ -38,9 +37,17 @@ else:
     from typing_extensions import TypedDict
 
 
-@contextlib.asynccontextmanager
-async def _empty_cm():
-    yield None
+class AsyncNullContext:
+    """Empty async context manager."""
+
+    def __init__(self):
+        pass
+
+    async def __aenter__(self):
+        pass
+
+    async def __aexit__(self, *args):
+        pass
 
 
 class BuildSettings(TypedDict, total=False):
@@ -107,8 +114,8 @@ class Build:
             "mapping_toml_path": build_dir_path / "mapping.toml",
         }
         self._build_bus: Dict[str, asyncio.Task] = {}
-        self._job_semaphore = asyncio.Semaphore(
-            max_jobs) if max_jobs else _empty_cm()
+        self.job_semaphore = asyncio.Semaphore(
+            max_jobs) if max_jobs else AsyncNullContext()
         self._parse_build_toml()
 
     def _parse_build_toml(self):
