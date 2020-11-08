@@ -30,7 +30,7 @@ from .exceptions import BuildError, MappingTOMLError, ProjectTOMLError
 if TYPE_CHECKING:
     # pylint false positive
     # pylint: disable=cyclic-import
-    from .build import Build # pragma: no cover
+    from .build import Build  # pragma: no cover
 
 
 class Project:
