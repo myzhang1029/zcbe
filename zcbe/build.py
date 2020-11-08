@@ -219,7 +219,7 @@ class Build:
         if proj_name in self._build_bus:
             return self._build_bus[proj_name]
         build_task = asyncio.create_task(
-            self._build_proj_wrapper(proj_name), name="Build-"+proj_name)
+            self._build_proj_wrapper(proj_name))
         self._build_bus[proj_name] = build_task
         return build_task
 
