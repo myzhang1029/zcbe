@@ -92,14 +92,12 @@ def base_test_invocator(monkeypatch, *, args: List[str] = [],
                         stdin: io.StringIO = None,
                         buildspec: dict = None):
     """Run zcbe with test buildspec."""
-    if stdin is None:
-        stdin = io.StringIO("")
     with skel(buildspec) as skeleton:
         stdout = io.StringIO()
         stderr = io.StringIO()
         monkeypatch.setattr(
             "sys.argv", ["zcbe"] + args + ["-C", skeleton.as_posix(), "pj2"])
-        monkeypatch.setattr("sys.stdin", stdin)
+        monkeypatch.setattr("sys.stdin", stdin or io.StringIO(""))
         monkeypatch.setattr("sys.stdout", stdout)
         monkeypatch.setattr("sys.stderr", stderr)
         zcbe.start()

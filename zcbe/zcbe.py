@@ -85,7 +85,7 @@ class AboutAction(argparse.Action):
 
 
 def start():
-    """ZCBE entrypoint. Parse arguments and invoke builder."""
+    """ZCBE entrypoint. Parse arguments."""
     # Set up the warner to use
     warner = ZCBEWarner()
     warner.load_default(set(ALL_WARNINGS), DEFAULT_WARNINGS)
@@ -156,6 +156,11 @@ def start():
         os.chdir(namespace.chdir)
     if namespace.silent:
         namespace.stdout_to = os.devnull
+    return asyncio.run(invoke_builder(namespace, warner))
+
+
+async def invoke_builder(namespace, warner):
+    """Invoke a builder with the arguments."""
     # Create builder instance
     builder = Build(".", warner, if_rebuild=namespace.rebuild,
                     if_dryrun=namespace.dry_run,
@@ -166,8 +171,7 @@ def start():
     if namespace.show_unbuilt:
         return 0 if builder.show_unbuilt() else 1
     if namespace.all:
-        runner = builder.build_all()
+        result = await builder.build_all()
     else:
-        runner = builder.build_many(namespace.projects)
-    success = asyncio.run(runner)
-    return 0 if success else 1
+        result = await builder.build_many(namespace.projects)
+    return result
