@@ -135,6 +135,8 @@ def start():
                         " ('{n}' expands to the name of the project)")
     parser.add_argument("-f", "--file", "--build-toml", type=str,
                         default="build.toml", help="Read FILE as build.toml")
+    parser.add_argument("-j", "--jobs", type=int,
+                        help="Number of maximum concurrent jobs")
     parser.add_argument("-a", "--all", action="store_true",
                         help="Build all projects in mapping.toml")
     parser.add_argument("-s", "--silent", action="store_true",
@@ -159,7 +161,8 @@ def start():
                     if_dryrun=namespace.dry_run,
                     build_toml_filename=namespace.file,
                     stdout=namespace.stdout_to,
-                    stderr=namespace.stderr_to)
+                    stderr=namespace.stderr_to,
+                    max_jobs=namespace.jobs or 0)
     if namespace.show_unbuilt:
         return 0 if builder.show_unbuilt() else 1
     if namespace.all:

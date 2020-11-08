@@ -161,7 +161,8 @@ class Project:
         environ = {**os.environ, **
                    {k: expand(self._envdict[k]) for k in self._envdict}}
         # Make sure no two build processes run in the same project
-        async with self.locked():
+        # and limit concurrent jobs
+        async with self.locked(), self._builder._job_semaphore:
             # Check if this project has already been built
             # Skip if if_rebuild is set to True
             if not self._settings["rebuild"] and \

@@ -17,6 +17,7 @@
 """ZCBE build."""
 
 import asyncio
+import contextlib
 import os
 import sys
 from pathlib import Path
@@ -35,6 +36,11 @@ if sys.version_info >= (3, 8):
     from typing import TypedDict
 else:
     from typing_extensions import TypedDict
+
+
+@contextlib.asynccontextmanager
+async def _empty_cm():
+    yield None
 
 
 class BuildSettings(TypedDict, total=False):
@@ -70,6 +76,9 @@ class Build:
         if_rebuild: whether to ignore recipe and force rebuild
         if_dryrun: whether to dry run
         build_toml_filename: override build.toml's file name
+        stdout: filename to redirect stdout into
+        stderr: filename to redirect stderr into
+        max_jobs: number of maximum jobs
     """
 
     # pylint: disable=too-many-instance-attributes
@@ -82,8 +91,8 @@ class Build:
             if_dryrun: bool = False,
             build_toml_filename: str = "build.toml",
             stdout: Optional[str] = None,
-            stderr: Optional[str] = None
-
+            stderr: Optional[str] = None,
+            max_jobs: Optional[int] = 0
     ):
         self._warner = warner
         build_dir_path = Path(build_dir).resolve()
@@ -98,6 +107,8 @@ class Build:
             "mapping_toml_path": build_dir_path / "mapping.toml",
         }
         self._build_bus: Dict[str, asyncio.Task] = {}
+        self._job_semaphore = asyncio.Semaphore(
+            max_jobs) if max_jobs else _empty_cm()
         self._parse_build_toml()
 
     def _parse_build_toml(self):
