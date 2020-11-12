@@ -1,5 +1,6 @@
 """Better os.path.expandvars."""
 import os
+from typing import Any
 
 
 class FakeEnviron:
@@ -19,7 +20,7 @@ class FakeEnviron:
     def __exit__(self, *_):
         os.environ = self._original
 
-    def __getitem__(self, item):
+    def __getitem__(self, item: str):
         try:
             return self._original[item]
         except KeyError:
@@ -27,11 +28,12 @@ class FakeEnviron:
             return ""
 
 
-def expandvars(string):
+def expandvars(string_any: Any):
     """Expand shell variables of form $var and ${var}.
 
     Unknown variables become empty. Escapes allowed.
     """
+    string = str(string_any)
     # Find a string that can be used to replace "\$"
     replacer = '\0'
     while replacer in string:
