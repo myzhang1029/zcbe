@@ -32,9 +32,9 @@ from .warner import ZCBEWarner
 
 if sys.version_info >= (3, 8):
     # pylint: disable=no-name-in-module
-    from typing import TypedDict
+    from typing import TypedDict  # pragma: no cover
 else:
-    from typing_extensions import TypedDict
+    from typing_extensions import TypedDict  # pragma: no cover
 
 
 class AsyncNullContext:

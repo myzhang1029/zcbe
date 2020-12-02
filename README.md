@@ -1,9 +1,10 @@
 # zcbe
 
-[![Build Status](https://travis-ci.com/myzhang1029/zcbe.svg)](https://travis-ci.com/myzhang1029/zcbe)
 ![Python package](https://github.com/myzhang1029/zcbe/workflows/Python%20package/badge.svg)
+![Upload Python Package](https://github.com/myzhang1029/zcbe/workflows/Upload%20Python%20Package/badge.svg)
 [![codecov](https://codecov.io/gh/myzhang1029/zcbe/branch/master/graph/badge.svg)](https://codecov.io/gh/myzhang1029/zcbe)
 [![Maintainability](https://api.codeclimate.com/v1/badges/e8785246f7dbe7676393/maintainability)](https://codeclimate.com/github/myzhang1029/zcbe/maintainability)
+
 ## Introduction
 The Z cross build environment is a tool for managing cross-compile environments.
 It comes with concurrent building, dependency tracking and other useful features.
