@@ -1,6 +1,6 @@
 # zcbe
 
-![Python package](https://github.com/myzhang1029/zcbe/workflows/Python%20package/badge.svg)
+![Python Package](https://github.com/myzhang1029/zcbe/workflows/Python%20package/badge.svg)
 ![Upload Python Package](https://github.com/myzhang1029/zcbe/workflows/Upload%20Python%20Package/badge.svg)
 [![codecov](https://codecov.io/gh/myzhang1029/zcbe/branch/master/graph/badge.svg)](https://codecov.io/gh/myzhang1029/zcbe)
 [![Maintainability](https://api.codeclimate.com/v1/badges/e8785246f7dbe7676393/maintainability)](https://codeclimate.com/github/myzhang1029/zcbe/maintainability)
@@ -14,9 +14,9 @@ It comes with concurrent building, dependency tracking and other useful features
 TODO
 ### CLI Usage
 ```
-zcbe [-h] [-w] [-W WARNING] [-B] [-C CHDIR] [-o FILE] [-e FILE]
-            [-f FILE] [-a] [-s] [-n] [-u] [-H ABOUT]
-            [PROJ [PROJ ...]]
+usage: zcbe [-h] [-w] [-W WARNING] [-B] [-C CHDIR] [-o FILE] [-e FILE]
+            [-f FILE] [-j JOBS] [-a] [-s] [-n] [-u] [-H ABOUT]
+            [PROJ ...]
 
 The Z Cross Build Environment
 
@@ -39,6 +39,7 @@ optional arguments:
                         the project)
   -f FILE, --file FILE, --build-toml FILE
                         Read FILE as build.toml
+  -j JOBS, --jobs JOBS  Number of maximum concurrent jobs
   -a, --all             Build all projects in mapping.toml
   -s, --silent          Silence make standard output(short for -o /dev/null)
   -n, --dry-run, --just-print, --recon
@@ -47,3 +48,4 @@ optional arguments:
   -H ABOUT, --about ABOUT
                         Help on a topic("topics" for a list of topics)
 ```
+
