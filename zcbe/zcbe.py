@@ -135,6 +135,12 @@ def start():
                         " ('{n}' expands to the name of the project)")
     parser.add_argument("-f", "--file", "--build-toml", type=str,
                         default="build.toml", help="Read FILE as build.toml")
+    parser.add_argument("-p", "--prefix", "--override-prefix", type=str,
+                        help="Override value for prefix")
+    parser.add_argument("-t", "--target-triplet", "--override-target",
+                        type=str, help="Override value for target triplet")
+    parser.add_argument("-m", "--build-name", "--override-build-name",
+                        type=str, help="Override value for build name")
     parser.add_argument("-j", "--jobs", type=int,
                         help="Number of maximum concurrent jobs")
     parser.add_argument("-a", "--all", action="store_true",
@@ -170,7 +176,10 @@ async def invoke_builder(namespace, warner):
                     stdout=namespace.stdout_to,
                     stderr=namespace.stderr_to,
                     max_jobs=namespace.jobs or 0,
-                    assume_yes=namespace.yes)
+                    assume_yes=namespace.yes,
+                    override_build_name=namespace.build_name,
+                    override_prefix=namespace.prefix,
+                    override_triplet=namespace.target_triplet)
     if namespace.show_unbuilt:
         return 0 if builder.show_unbuilt() else 1
     if namespace.all:

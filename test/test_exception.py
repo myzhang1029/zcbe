@@ -40,6 +40,19 @@ def test_buildtoml_error2(monkeypatch):
     assert 0, "This test should raise"
 
 
+def test_buildtoml_error3(monkeypatch):
+    """Test for another bad build.toml"""
+    buildspec = deepcopy(BS_BASE)
+    del buildspec["build_toml"]["info"]
+    try:
+        with base_test_invocator(monkeypatch, buildspec=buildspec):
+            # `with` to activate the cm
+            pass
+    except zcbe.exceptions.BuildTOMLError:
+        return
+    assert 0, "This test should raise"
+
+
 def test_global_dep_error(monkeypatch):
     """Test for global build dependencies error on unexpected key"""
     buildspec = deepcopy(BS_BASE)

@@ -144,66 +144,6 @@ def test_builddep_prompt(monkeypatch):
         assert stderr.getvalue() == ""
 
 
-def test_build_all(monkeypatch):
-    """Test for -a option."""
-    buildspec = deepcopy(BS_BASE)
-    buildspec["build_toml"]["env"]["ENV1"] = "$ZCHOST"
-    buildspec["projects"][0]["build_sh"] += "touch pj.f\n"
-    buildspec["projects"][1]["build_sh"] += "touch pj2.f\n"
-    with base_test_invocator(monkeypatch, buildspec=buildspec, args=["-a"]) \
-            as (skeleton, _, _):
-        assert (skeleton/"pj.f").exists()
-        assert (skeleton/"pj2.f").exists()
-
-
-def test_help_topics(monkeypatch):
-    """Test for help topics."""
-    try:
-        with base_test_invocator(monkeypatch, args=["-H", "warnings"]) \
-                as (_, stdout, stderr):
-            assert stdout.getvalue() == ""
-            assert "name-mismatch" in stderr.getvalue()
-    except SystemExit:
-        pass
-    else:
-        assert 0, "This test should exit"
-    try:
-        with base_test_invocator(monkeypatch, args=["-H", "nothing"]) \
-                as (_, stdout, stderr):
-            assert stdout.getvalue() == ""
-            assert "topics" in stderr.getvalue()
-    except SystemExit:
-        pass
-    else:
-        assert 0, "This test should exit"
-
-
-def test_dry_run(monkeypatch):
-    """Test for --dry-run."""
-    buildspec = deepcopy(BS_BASE)
-    buildspec["projects"][0]["build_sh"] += "echo $ENV1 >> pj.f\n"
-    with base_test_invocator(monkeypatch, buildspec=buildspec, args=["-n"]) \
-            as (skeleton, _, stderr):
-        assert stderr.getvalue() == ""
-        assert not (skeleton/"pj.f").exists()
-
-
-def test_show_unbuilt(monkeypatch):
-    """Test for --show-unbuilt."""
-    with base_test_invocator(monkeypatch, args=["-u"]) \
-            as (_, stdout, stderr):
-        assert stderr.getvalue() == ""
-        assert "pj" in stdout.getvalue()
-        assert "pj2" in stdout.getvalue()
-    with base_test_invocator(monkeypatch, args=["-s"]):
-        monkeypatch.setattr(
-            "sys.argv", ["zcbe", "-u"])
-        monkeypatch.setattr("sys.stdout", stdout)
-        stdout = io.StringIO()
-        zcbe.start()
-        assert stdout.getvalue() == ""
-
-
 def test_recipe(monkeypatch):
     """Test for writing recipe upon success and failure."""
     buildspec = deepcopy(BS_BASE)

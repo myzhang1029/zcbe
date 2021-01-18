@@ -72,8 +72,12 @@ class BuildSettings(TypedDict, total=False):
     build_name: str
     # Prefix
     prefix: Path
-    # Host triplet
-    host: str
+    # Environment variables
+    environ: Optional[Dict[str, str]]
+    # Global build-time dependencies
+    deps: Optional[Dict[str, str]]
+    # Target triplet
+    triplet: str
 
 
 class Build:
@@ -89,6 +93,9 @@ class Build:
         stderr: filename to redirect stderr into
         max_jobs: number of maximum jobs
         assume_yes: whether to assume yes for all questions
+        override_build_name: an overriding value for the name of this build
+        override_prefix: an overriding value for the prefix
+        override_triplet: an overriding value for the target triplet
     """
 
     # pylint: disable=too-many-instance-attributes
@@ -103,7 +110,10 @@ class Build:
             stdout: Optional[str] = None,
             stderr: Optional[str] = None,
             max_jobs: Optional[int] = 0,
-            assume_yes: bool = False
+            assume_yes: bool = False,
+            override_build_name: str = None,
+            override_prefix: str = None,
+            override_triplet: str = None,
     ):
         self._warner = warner
         build_dir_path = Path(build_dir).resolve()
@@ -121,32 +131,34 @@ class Build:
         self._build_bus: Dict[str, asyncio.Task] = {}
         self.job_semaphore = asyncio.Semaphore(
             max_jobs) if max_jobs else AsyncNullContext()
-        self._parse_build_toml()
+        self._parse_build_toml(override_build_name,
+                               override_prefix, override_triplet)
+        self._check_config()
+        self._set_global_env()
+        self._resolve_global_deps()
 
-    def _parse_build_toml(self):
+    def _parse_build_toml(self,
+                          override_build_name: str = None,
+                          override_prefix: str = None,
+                          override_triplet: str = None
+                          ):
         """Load the build toml (i.e. top level conf) and set environ."""
         build_toml: Path = self._settings["build_toml_path"]
         if not build_toml.exists():
             raise BuildTOMLError("build toml not found")
         bdict = toml.load(build_toml)
-        info = bdict["info"]
+        try:
+            info = bdict["info"]
+        except KeyError as err:
+            raise BuildTOMLError(
+                "Expected section `info' not found") from err
         try:
             # Read configuration parameters
-            more_settings = {
-                "build_name": info["build-name"],
-                "prefix": Path(info["prefix"]).resolve(),
-                "host": info["hostname"],
-            }
-            self._settings.update(more_settings)
-            # Make sure prefix exists and is a directory
-            self._settings["prefix"].mkdir(parents=True, exist_ok=True)
-            # Initialize dependency and built recorder
-            self._dep_manager = DepManager(
-                self._settings["prefix"] / "zcbe.recipe",
-                assume_yes=self._settings["assume_yes"])
-            os.environ["ZCPREF"] = self._settings["prefix"].as_posix()
-            os.environ["ZCHOST"] = self._settings["host"]
-            os.environ["ZCTOP"] = self._settings["build_dir"].as_posix()
+            self._settings.update({
+                "build_name": override_build_name or info["build-name"],
+                "prefix": Path(override_prefix or info["prefix"]).resolve(),
+                "triplet": override_triplet or info["hostname"],
+            })
         except KeyError as err:
             raise BuildTOMLError(
                 f"Expected key `info.{err}' not found") from err
@@ -154,21 +166,39 @@ class Build:
         if "mapping" in info:
             self._settings["mapping_toml_path"] = \
                 self._settings["build_dir"] / info["mapping"]
+        self._settings["environ"] = bdict["env"] if "env" in bdict else {}
+        self._settings["deps"] = bdict["deps"] if "deps" in bdict else {}
+
+    def _resolve_global_deps(self):
+        """Check global build-time dependencies."""
+        # Build-wide dependency - only build key is allowed
+        for key in self._settings["deps"]:
+            if key != "build":
+                raise BuildTOMLError("Unexpected global dependency type "
+                                     f"`deps.{key}'. Only \"build\" "
+                                     "dependencies are allowed here")
+            for item in self._settings["deps"]["build"]:
+                self._dep_manager.check("build", item)
+
+    def _check_config(self):
+        """Check provided configuration."""
+        # Make sure prefix exists and is a directory
+        self._settings["prefix"].mkdir(parents=True, exist_ok=True)
+        # Initialize dependency and built recorder
+        self._dep_manager = DepManager(
+            self._settings["prefix"] / "zcbe.recipe",
+            assume_yes=self._settings["assume_yes"])
         if not self._settings["mapping_toml_path"].exists():
             raise MappingTOMLError("mapping toml not found")
-        if "env" in bdict:
-            edict = bdict["env"]
-            # Expand sh-style variable
-            os.environ.update({k: expand(edict[k]) for k in edict})
-        # Build-wide dependency - only build key is allowed
-        if "deps" in bdict:
-            for key in bdict["deps"]:
-                if key != "build":
-                    raise BuildTOMLError("Unexpected global dependency type "
-                                         f"`deps.{key}'. Only \"build\" "
-                                         "dependencies are allowed here")
-                for item in bdict["deps"]["build"]:
-                    self._dep_manager.check("build", item)
+
+    def _set_global_env(self):
+        """Set global environment variables."""
+        os.environ["ZCPREF"] = self._settings["prefix"].as_posix()
+        os.environ["ZCHOST"] = self._settings["triplet"]
+        os.environ["ZCTOP"] = self._settings["build_dir"].as_posix()
+        edict = self._settings["environ"]
+        # Expand sh-style variable
+        os.environ.update({k: expand(edict[k]) for k in edict})
 
     def get_proj_path(self, proj_name: str) -> Path:
         """Get a project's root directory by looking up mapping toml.
