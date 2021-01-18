@@ -56,6 +56,8 @@ class BuildSettings(TypedDict, total=False):
     rebuild: bool
     # Whether to dry run
     dryrun: bool
+    # Whether to assume yes for all questions
+    assume_yes: bool
     # Stdout filenames
     stdout: Optional[str]
     # Stderr filename
@@ -86,6 +88,7 @@ class Build:
         stdout: filename to redirect stdout into
         stderr: filename to redirect stderr into
         max_jobs: number of maximum jobs
+        assume_yes: whether to assume yes for all questions
     """
 
     # pylint: disable=too-many-instance-attributes
@@ -99,7 +102,8 @@ class Build:
             build_toml_filename: str = "build.toml",
             stdout: Optional[str] = None,
             stderr: Optional[str] = None,
-            max_jobs: Optional[int] = 0
+            max_jobs: Optional[int] = 0,
+            assume_yes: bool = False
     ):
         self._warner = warner
         build_dir_path = Path(build_dir).resolve()
@@ -112,6 +116,7 @@ class Build:
             "build_toml_path": build_dir_path / build_toml_filename,
             # Default value, can be overridden in build.toml
             "mapping_toml_path": build_dir_path / "mapping.toml",
+            "assume_yes": assume_yes,
         }
         self._build_bus: Dict[str, asyncio.Task] = {}
         self.job_semaphore = asyncio.Semaphore(
@@ -137,7 +142,8 @@ class Build:
             self._settings["prefix"].mkdir(parents=True, exist_ok=True)
             # Initialize dependency and built recorder
             self._dep_manager = DepManager(
-                self._settings["prefix"] / "zcbe.recipe")
+                self._settings["prefix"] / "zcbe.recipe",
+                assume_yes=self._settings["assume_yes"])
             os.environ["ZCPREF"] = self._settings["prefix"].as_posix()
             os.environ["ZCHOST"] = self._settings["host"]
             os.environ["ZCTOP"] = self._settings["build_dir"].as_posix()

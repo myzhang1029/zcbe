@@ -25,18 +25,20 @@ class DepManager:
 
     Args:
         depfile: Path to the dependency tracking file
+        assume_yes: Whether to assume yes for all questions
 
     Dependency types:
         req: things that need to be built
         build: build tools that should be present on the computer
     """
 
-    def __init__(self, depfile):
+    def __init__(self, depfile: str, *, assume_yes: bool = False):
         self.depfile = depfile
         if not Path(depfile).exists():
             json.dump({}, open(depfile, "w"))
+        self._assume_yes = assume_yes
 
-    def add(self, deptype, depname):
+    def add(self, deptype: str, depname: str):
         """Mark a dependency as "built"."""
         depfile = json.load(open(self.depfile))
         try:
@@ -46,9 +48,10 @@ class DepManager:
             depfile[deptype][depname] = True
         json.dump(depfile, open(self.depfile, "w"))
 
-    @staticmethod
-    def ask_build(depname):
+    def ask_build(self, depname):
         """Ask the user if a build tool has been installed."""
+        if self._assume_yes:
+            return True
         while True:
             resp = input(f"Is {depname} installed on your system? [y/n] ")
             resp = resp.lower()

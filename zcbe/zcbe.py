@@ -147,6 +147,8 @@ def start():
                         help="Don't actually run any commands")
     parser.add_argument("-u", "--show-unbuilt", action="store_true",
                         help="List unbuilt projects and exit")
+    parser.add_argument("-y", "--yes", action="store_true",
+                        help="Assume yes for all questions")
     parser.add_argument("-H", "--about", type=str, action=AboutAction,
                         help='Help on a topic("topics" for a list of topics)')
     parser.add_argument('projects', metavar='PROJ', nargs='*',
@@ -167,7 +169,8 @@ async def invoke_builder(namespace, warner):
                     build_toml_filename=namespace.file,
                     stdout=namespace.stdout_to,
                     stderr=namespace.stderr_to,
-                    max_jobs=namespace.jobs or 0)
+                    max_jobs=namespace.jobs or 0,
+                    assume_yes=namespace.yes)
     if namespace.show_unbuilt:
         return 0 if builder.show_unbuilt() else 1
     if namespace.all:
