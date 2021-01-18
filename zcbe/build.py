@@ -149,10 +149,6 @@ class Build:
         bdict = toml.load(build_toml)
         try:
             info = bdict["info"]
-        except KeyError as err:
-            raise BuildTOMLError(
-                "Expected section `info' not found") from err
-        try:
             # Read configuration parameters
             self._settings.update({
                 "build_name": override_build_name or info["build-name"],
@@ -161,7 +157,7 @@ class Build:
             })
         except KeyError as err:
             raise BuildTOMLError(
-                f"Expected key `info.{err}' not found") from err
+                "Incomplete or missing `info' section") from err
         # Override default mapping file name
         if "mapping" in info:
             self._settings["mapping_toml_path"] = \

@@ -91,7 +91,7 @@ def test_override_triplet(monkeypatch):
     buildspec = deepcopy(BS_BASE)
     # Let pj2 fail
     buildspec["projects"][1]["build_sh"] = \
-    "#!/bin/sh\necho \"${ZCHOST}\" > \"${ZCPREF}\"/a"
+        "#!/bin/sh\necho \"${ZCHOST}\" > \"${ZCPREF}\"/a"
     with base_test_invocator(monkeypatch, buildspec=buildspec, args=["-t", "arm"]) \
             as (skeleton, _, _):
         assert (skeleton/"prefix/a").open().read() == "arm\n"

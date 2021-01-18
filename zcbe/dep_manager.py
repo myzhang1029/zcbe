@@ -48,10 +48,9 @@ class DepManager:
             depfile[deptype][depname] = True
         json.dump(depfile, open(self.depfile, "w"))
 
-    def ask_build(self, depname):
+    @staticmethod
+    def ask_build(depname):
         """Ask the user if a build tool has been installed."""
-        if self._assume_yes:
-            return True
         while True:
             resp = input(f"Is {depname} installed on your system? [y/n] ")
             resp = resp.lower()
@@ -68,7 +67,8 @@ class DepManager:
         try:
             return depfile[deptype][depname]
         except KeyError:
-            if deptype == "build" and self.ask_build(depname):
+            if deptype == "build" \
+                    and (self._assume_yes or self.ask_build(depname)):
                 self.add("build", depname)
                 return True
             return False

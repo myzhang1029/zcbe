@@ -160,15 +160,15 @@ def start():
     parser.add_argument('projects', metavar='PROJ', nargs='*',
                         help='List of projects to build')
     namespace = parser.parse_args()
-    if namespace.chdir:
-        os.chdir(namespace.chdir)
-    if namespace.silent:
-        namespace.stdout_to = os.devnull
     return asyncio.run(invoke_builder(namespace, warner))
 
 
 async def invoke_builder(namespace, warner):
     """Invoke a builder with the arguments."""
+    if namespace.chdir:
+        os.chdir(namespace.chdir)
+    if namespace.silent:
+        namespace.stdout_to = os.devnull
     # Create builder instance
     builder = Build(".", warner, if_rebuild=namespace.rebuild,
                     if_dryrun=namespace.dry_run,
