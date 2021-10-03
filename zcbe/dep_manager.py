@@ -17,14 +17,16 @@
 """ZCBE dependency tracker with persistence."""
 
 import json
+from os import PathLike
 from pathlib import Path
+from typing import Any, Dict
 
 
 class DepManager:
     """Dependency Tracker.
 
     Args:
-        depfile: Path to the dependency tracking file
+        depfile_path: Path to the dependency tracking file
         assume_yes: Whether to assume yes for all questions
 
     Dependency types:
@@ -32,24 +34,27 @@ class DepManager:
         build: build tools that should be present on the computer
     """
 
-    def __init__(self, depfile: str, *, assume_yes: bool = False):
-        self.depfile = depfile
-        if not Path(depfile).exists():
-            json.dump({}, open(depfile, "w"))
+    def __init__(self, depfile_path: PathLike[Any], assume_yes: bool = False):
+        self.depfile_path = depfile_path
+        if not Path(depfile_path).exists():
+            with open(depfile_path, "w", encoding="utf-8") as depfile:
+                json.dump({}, depfile)
         self._assume_yes = assume_yes
 
-    def add(self, deptype: str, depname: str):
+    def add(self, deptype: str, depname: str) -> None:
         """Mark a dependency as "built"."""
-        depfile = json.load(open(self.depfile))
+        with open(self.depfile_path, encoding="utf-8") as depfile:
+            dep: Dict[str, Dict[str, bool]] = json.load(depfile)
         try:
-            depfile[deptype][depname] = True
+            dep[deptype][depname] = True
         except KeyError:
-            depfile[deptype] = {}
-            depfile[deptype][depname] = True
-        json.dump(depfile, open(self.depfile, "w"))
+            dep[deptype] = {}
+            dep[deptype][depname] = True
+        with open(self.depfile_path, "w", encoding="utf-8") as depfile:
+            json.dump(dep, depfile)
 
-    @staticmethod
-    def ask_build(depname):
+    @ staticmethod
+    def ask_build(depname: str) -> bool:
         """Ask the user if a build tool has been installed."""
         while True:
             resp = input(f"Is {depname} installed on your system? [y/n] ")
@@ -61,11 +66,12 @@ class DepManager:
                 return True
             print("Unknown reply.")
 
-    def check(self, deptype, depname):
+    def check(self, deptype: str, depname: str) -> bool:
         """Check if a dependency has been marked as "built"."""
-        depfile = json.load(open(self.depfile))
+        with open(self.depfile_path, encoding="utf-8") as depfile:
+            dep: Dict[str, Dict[str, bool]] = json.load(depfile)
         try:
-            return depfile[deptype][depname]
+            return dep[deptype][depname]
         except KeyError:
             if deptype == "build" \
                     and (self._assume_yes or self.ask_build(depname)):

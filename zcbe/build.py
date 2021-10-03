@@ -37,17 +37,19 @@ else:
     from typing_extensions import TypedDict  # pragma: no cover
 
 
-class AsyncNullContext:
-    """Empty async context manager."""
+class InfiniteSemaphore(asyncio.Semaphore):
+    """Infinite async semaphore."""
 
-    def __init__(self):
-        pass
+    def locked(self) -> bool:
+        """Returns True if semaphore can not be acquired immediately."""
+        return False
 
-    async def __aenter__(self):
-        pass
+    async def acquire(self) -> bool:
+        """Acquire a semaphore."""
+        return True
 
-    async def __aexit__(self, *args):
-        pass
+    def release(self) -> None:
+        """Release a semaphore."""
 
 
 class BuildSettings(TypedDict, total=False):
@@ -111,9 +113,9 @@ class Build:
             stderr: Optional[str] = None,
             max_jobs: Optional[int] = 0,
             assume_yes: bool = False,
-            override_build_name: str = None,
-            override_prefix: str = None,
-            override_triplet: str = None,
+            override_build_name: Optional[str] = None,
+            override_prefix: Optional[str] = None,
+            override_triplet: Optional[str] = None,
     ):
         self._warner = warner
         build_dir_path = Path(build_dir).resolve()
@@ -128,9 +130,9 @@ class Build:
             "mapping_toml_path": build_dir_path / "mapping.toml",
             "assume_yes": assume_yes,
         }
-        self._build_bus: Dict[str, asyncio.Task] = {}
+        self._build_bus: Dict[str, asyncio.Future[None]] = {}
         self.job_semaphore = asyncio.Semaphore(
-            max_jobs) if max_jobs else AsyncNullContext()
+            max_jobs) if max_jobs else InfiniteSemaphore()
         self._parse_build_toml(override_build_name,
                                override_prefix, override_triplet)
         self._check_config()
@@ -138,10 +140,10 @@ class Build:
         self._resolve_global_deps()
 
     def _parse_build_toml(self,
-                          override_build_name: str = None,
-                          override_prefix: str = None,
-                          override_triplet: str = None
-                          ):
+                          override_build_name: Optional[str] = None,
+                          override_prefix: Optional[str] = None,
+                          override_triplet: Optional[str] = None
+                          ) -> None:
         """Load the build toml (i.e. top level conf) and set environ."""
         build_toml: Path = self._settings["build_toml_path"]
         if not build_toml.exists():
@@ -165,8 +167,10 @@ class Build:
         self._settings["environ"] = bdict["env"] if "env" in bdict else {}
         self._settings["deps"] = bdict["deps"] if "deps" in bdict else {}
 
-    def _resolve_global_deps(self):
+    def _resolve_global_deps(self) -> None:
         """Check global build-time dependencies."""
+        if self._settings["deps"] is None:
+            return
         # Build-wide dependency - only build key is allowed
         for key in self._settings["deps"]:
             if key != "build":
@@ -176,7 +180,7 @@ class Build:
             for item in self._settings["deps"]["build"]:
                 self._dep_manager.check("build", item)
 
-    def _check_config(self):
+    def _check_config(self) -> None:
         """Check provided configuration."""
         # Make sure prefix exists and is a directory
         self._settings["prefix"].mkdir(parents=True, exist_ok=True)
@@ -187,12 +191,14 @@ class Build:
         if not self._settings["mapping_toml_path"].exists():
             raise MappingTOMLError("mapping toml not found")
 
-    def _set_global_env(self):
+    def _set_global_env(self) -> None:
         """Set global environment variables."""
         os.environ["ZCPREF"] = self._settings["prefix"].as_posix()
         os.environ["ZCHOST"] = self._settings["triplet"]
         os.environ["ZCTOP"] = self._settings["build_dir"].as_posix()
         edict = self._settings["environ"]
+        if edict is None:
+            return
         # Expand sh-style variable
         os.environ.update({k: expand(edict[k]) for k in edict})
 
@@ -205,13 +211,13 @@ class Build:
         mapping_toml = self._settings["mapping_toml_path"]
         if not mapping_toml.exists():
             raise MappingTOMLError("mapping toml not found")
-        mapping = toml.load(mapping_toml)["mapping"]
+        mapping: Dict[str, str] = toml.load(mapping_toml)["mapping"]
         try:
             return self._settings["build_dir"] / mapping[proj_name]
         except KeyError as err:
             raise MappingTOMLError(f'project "{proj_name}" not found') from err
 
-    def get_proj(self, proj_name: str):
+    def get_proj(self, proj_name: str) -> Project:
         """Get the Project instance corresponding to proj_name.
 
         Args:
@@ -229,7 +235,7 @@ class Build:
         mapping = toml.load(mapping_toml)["mapping"]
         return await self.build_many(list(mapping))
 
-    async def _build_proj_wrapper(self, proj_name: str):
+    async def _build_proj_wrapper(self, proj_name: str) -> None:
         """A single coroutine including everything about calling Project.build.
 
         Args:
@@ -238,14 +244,14 @@ class Build:
         proj = self.get_proj(proj_name)
         await proj.build()
 
-    def build(self, proj_name: str) -> asyncio.Task:
+    def build(self, proj_name: str) -> asyncio.Future[None]:
         """Build a project.
 
         Args:
             proj_name: the name of the project
 
         Return:
-            The asyncio.Task of the build process
+            The asyncio.Future of the build process
         """
         # A build already in progress
         if proj_name in self._build_bus:

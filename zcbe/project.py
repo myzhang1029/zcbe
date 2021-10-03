@@ -20,7 +20,8 @@ import asyncio
 import contextlib
 import os
 from pathlib import Path
-from typing import TYPE_CHECKING, Dict, List, Optional, TextIO
+from typing import (TYPE_CHECKING, Any, AsyncGenerator, Dict, List, Optional,
+                    TextIO)
 
 import toml
 
@@ -44,7 +45,7 @@ class Project:
 
     # pylint: disable=too-many-instance-attributes
     def __init__(self,
-                 proj_dir: os.PathLike,
+                 proj_dir: os.PathLike[Any],
                  proj_name: str,
                  builder: "Build"
                  ):
@@ -75,7 +76,7 @@ class Project:
             return local_try
         raise ProjectTOMLError("conf.toml not found")
 
-    async def solve_deps(self, depdict: Dict[str, List[str]]):
+    async def solve_deps(self, depdict: Dict[str, List[str]]) -> None:
         """Solve dependencies.
 
         Args:
@@ -94,7 +95,7 @@ class Project:
                 raise BuildError(message)
             # table == "build" or build_many returned True
 
-    def _parse_conf_toml(self):
+    def _parse_conf_toml(self) -> None:
         """Load the conf toml and set envs."""
         # Make sure of conf.toml's presence
         conf_toml = self.locate_conf_toml()
@@ -118,7 +119,7 @@ class Project:
         self._depdict = cdict["deps"] if "deps" in cdict else {}
         self._envdict = cdict["env"] if "env" in cdict else {}
 
-    async def acquire_lock(self):
+    async def acquire_lock(self) -> None:
         """Acquires project build lock."""
         lockfile = self._proj_dir / "zcbe.lock"
         while lockfile.exists():
@@ -127,14 +128,14 @@ class Project:
             await asyncio.sleep(10)
         lockfile.touch()
 
-    async def release_lock(self):
+    async def release_lock(self) -> None:
         """Releases project build lock."""
         lockfile = self._proj_dir / "zcbe.lock"
         if lockfile.exists():
             lockfile.unlink()
 
     @contextlib.asynccontextmanager
-    async def locked(self):
+    async def locked(self) -> AsyncGenerator[None, None]:
         """With statement for build locks."""
         await self.acquire_lock()
         try:
@@ -145,14 +146,16 @@ class Project:
     async def _get_stdout(self) -> Optional[TextIO]:
         """Get stdout after expanding {n} to self._proj_name."""
         stdout = self._settings["stdout"]
+        # pylint: disable=unspecified-encoding # Use platform-default
         return open(stdout.format(n=self._proj_name), "a") if stdout else None
 
     async def _get_stderr(self) -> Optional[TextIO]:
         """Get stderr after expanding {n} to self._proj_name."""
         stderr = self._settings["stderr"]
+        # pylint: disable=unspecified-encoding # Use platform-default
         return open(stderr.format(n=self._proj_name), "a") if stderr else None
 
-    async def build(self):
+    async def build(self) -> None:
         """Solve dependencies and build the project."""
         # Solve dependencies recursively
         await self.solve_deps(self._depdict)

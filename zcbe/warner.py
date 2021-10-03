@@ -25,7 +25,7 @@ from .exceptions import eprint
 class ZCBEWarner:
     """A simple warner for ZCBE."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.options = {
             "error": False,
             "all": True,
@@ -33,12 +33,13 @@ class ZCBEWarner:
         self.silent = False
         self.all = False
 
-    def setopts(self, options: Dict[str, bool]):
+    def setopts(self, options: Dict[str, bool]) -> None:
         """Control whether a warning is shown or add warnings."""
         for one in options:
             self.options[one] = options[one]
 
-    def load_default(self, all_warnings: Set[str], enabled_warnings: Set[str]):
+    def load_default(self, all_warnings: Set[str],
+                     enabled_warnings: Set[str]) -> None:
         """Load default enable/disable settings.
 
         Args:
@@ -50,23 +51,23 @@ class ZCBEWarner:
         for one in enabled_warnings:
             self.options[one] = True
 
-    def silence(self):
+    def silence(self) -> None:
         """Silence all warnings (shell -w)."""
         self.silent = True
 
-    def shouldwarn(self, name: str):
+    def shouldwarn(self, name: str) -> bool:
         """Determine whether a warnings should be shown."""
         if (self.options["all"] or self.options[name]) and not self.silent:
             return True
         return False
 
-    def werror(self):
+    def werror(self) -> None:
         """Exit if -Werror is supplied."""
         if self.options["error"]:
             eprint("exiting [-Werror]")
             sys.exit(2)
 
-    def warn(self, name: str, string: str):
+    def warn(self, name: str, string: str) -> None:
         """Issue a warning.
 
         Args:

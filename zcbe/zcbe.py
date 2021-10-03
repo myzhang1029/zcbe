@@ -26,6 +26,7 @@ import asyncio
 import os
 import sys
 import textwrap
+from typing import Any, NoReturn, Optional, Sequence, Union
 
 from .build import Build
 from .exceptions import eprint
@@ -42,8 +43,7 @@ ALL_WARNINGS = {
 }
 
 # Gather help strings for all warnings
-WARNINGS_HELP = '\n'.join(
-    ["{}: {}".format(x, ALL_WARNINGS[x]) for x in ALL_WARNINGS])
+WARNINGS_HELP = '\n'.join([f"{k}: {v}" for k, v in ALL_WARNINGS.items()])
 
 DEFAULT_WARNINGS = set((
     "name-mismatch",
@@ -72,10 +72,16 @@ class AboutAction(argparse.Action):
     # pylint: disable=too-few-public-methods
     """Argparse action to show help topics. Exits when finished."""
 
-    def __init__(self, option_strings, dest, nargs=1, **kwargs):
+    def __init__(self, option_strings: str, dest: str,
+                 nargs: int = 1, **kwargs: Any):
         super().__init__(option_strings, dest, nargs, **kwargs)
 
-    def __call__(self, parser, namespace, values, option_string=None):
+    def __call__(self, parser: argparse.ArgumentParser,
+                 namespace: argparse.Namespace,
+                 values: Union[str, Sequence[Any], None],
+                 option_string: Optional[str] = None) -> NoReturn:
+        if values is None:
+            sys.exit(0)
         name = values[0]
         try:
             eprint(TOPICS[name], title="")
@@ -84,7 +90,7 @@ class AboutAction(argparse.Action):
         sys.exit(0)
 
 
-def start():
+def start() -> int:
     """ZCBE entrypoint. Parse arguments."""
     # Set up the warner to use
     warner = ZCBEWarner()
@@ -95,13 +101,19 @@ def start():
         # pylint: disable=too-few-public-methods
         """Argparse action to modify warning behavior."""
 
-        def __init__(self, option_strings, dest, nargs=1, **kwargs):
+        def __init__(self, option_strings: str, dest: str,
+                     nargs: int = 1, **kwargs: Any):
             super().__init__(option_strings, dest, nargs, **kwargs)
 
-        def __call__(self, parser, namespace, values, option_string=None):
+        def __call__(self, parser: argparse.ArgumentParser,
+                     namespace: argparse.Namespace,
+                     values: Union[str, Sequence[Any], None],
+                     option_string: Optional[str] = None) -> None:
             # First deal with -w
-            if option_string[1] == 'w':
+            if option_string and option_string[1] == 'w':
                 warner.silence()
+                return
+            if values is None:
                 return
             # Then deal with -W*
             reverse = False
@@ -163,7 +175,8 @@ def start():
     return asyncio.run(invoke_builder(namespace, warner))
 
 
-async def invoke_builder(namespace, warner):
+async def invoke_builder(namespace: argparse.Namespace,
+                         warner: ZCBEWarner) -> int:
     """Invoke a builder with the arguments."""
     if namespace.chdir:
         os.chdir(namespace.chdir)
@@ -175,15 +188,15 @@ async def invoke_builder(namespace, warner):
                     build_toml_filename=namespace.file,
                     stdout=namespace.stdout_to,
                     stderr=namespace.stderr_to,
-                    max_jobs=namespace.jobs or 0,
+                    max_jobs=namespace.jobs or 1,
                     assume_yes=namespace.yes,
                     override_build_name=namespace.build_name,
                     override_prefix=namespace.prefix,
                     override_triplet=namespace.target_triplet)
     if namespace.show_unbuilt:
-        return 0 if builder.show_unbuilt() else 1
+        return 2 if builder.show_unbuilt() else 0
     if namespace.all:
         result = await builder.build_all()
     else:
         result = await builder.build_many(namespace.projects)
-    return result
+    return 0 if result else 1

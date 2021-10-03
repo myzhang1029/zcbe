@@ -23,7 +23,8 @@ setup(
     name="zcbe",
     version="0.5.0",
     description="The Z Cross Build Environment",
-    long_description=open("README.md").read(),
+    # pylint: disable=consider-using-with
+    long_description=open("README.md", encoding="utf-8").read(),
     long_description_content_type="text/markdown",
     author="Zhang Maiyun",
     author_email="myzhang1029@hotmail.com",

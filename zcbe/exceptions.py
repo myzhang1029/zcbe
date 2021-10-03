@@ -16,6 +16,7 @@
 
 """ZCBE exceptions and error handling."""
 import sys
+from typing import Any, Optional
 
 __all__ = ["BuildError", "ConfigError", "BuildTOMLError",
            "MappingTOMLError", "ProjectTOMLError", "eprint"]
@@ -41,7 +42,8 @@ class ProjectTOMLError(ConfigError):
     """Exception raised when conf.toml is faluty."""
 
 
-def eprint(*args, title="Error: ", **kwargs):
+def eprint(*args: Any, title: Optional[str] = "Error: ",
+           **kwargs: Any) -> None:
     """Print to stderr, use title as the starting if supplied."""
     if title:
         print("zcbe ***", title, end='', file=sys.stderr)

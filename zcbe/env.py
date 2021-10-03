@@ -9,18 +9,18 @@ class FakeEnviron:
     returns empty strings if a variable does not exist.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._original = os.environ
 
-    def __enter__(self):
+    def __enter__(self) -> "FakeEnviron":
         # Only replace os.envion if context manager is used
-        os.environ = self
+        os.environ = self  # type: ignore # intended to mock it
         return self
 
-    def __exit__(self, *_):
+    def __exit__(self, *_: Any) -> None:
         os.environ = self._original
 
-    def __getitem__(self, item: str):
+    def __getitem__(self, item: str) -> str:
         try:
             return self._original[item]
         except KeyError:
@@ -28,7 +28,7 @@ class FakeEnviron:
             return ""
 
 
-def expandvars(string_any: Any):
+def expandvars(string_any: Any) -> str:
     """Expand shell variables of form $var and ${var}.
 
     Unknown variables become empty. Escapes allowed.
