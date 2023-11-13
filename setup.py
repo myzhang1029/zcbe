@@ -27,7 +27,7 @@ setup(
     long_description=open("README.md", encoding="utf-8").read(),
     long_description_content_type="text/markdown",
     author="Zhang Maiyun",
-    author_email="myzhang1029@hotmail.com",
+    author_email="me@maiyun.me",
     url="https://github.com/myzhang1029/zcbe",
     classifiers=[
         "Development Status :: 4 - Beta",
