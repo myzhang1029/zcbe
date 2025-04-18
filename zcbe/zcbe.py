@@ -193,8 +193,9 @@ async def invoke_builder(namespace: argparse.Namespace,
                     override_build_name=namespace.build_name,
                     override_prefix=namespace.prefix,
                     override_triplet=namespace.target_triplet)
+    await builder.resolve_global_deps()
     if namespace.show_unbuilt:
-        return 2 if builder.show_unbuilt() else 0
+        return 2 if await builder.show_unbuilt() else 0
     if namespace.all:
         result = await builder.build_all()
     else:

@@ -89,7 +89,7 @@ class Project:
         for table in depdict:
             if table == "build":
                 for item in depdict[table]:
-                    self._dep_manager.check(table, item)
+                    await self._dep_manager.check(table, item)
             elif not await self._builder.build_many(depdict[table]):
                 # table != "build"
                 raise BuildError(message)
@@ -169,7 +169,7 @@ class Project:
             # Check if this project has already been built
             # Skip if if_rebuild is set to True
             if not self._settings["rebuild"] and \
-                    self._dep_manager.check("req", self._proj_name):
+                    await self._dep_manager.check("req", self._proj_name):
                 print(f"Requirement already satisfied: {self._proj_name}")
                 return
             print(f"Entering project {self._proj_name}")
@@ -189,6 +189,9 @@ class Project:
             await process.wait()
             print(f"Leaving project {self._proj_name} with status "
                   f"{process.returncode}")
+        if not self._settings["dryrun"]:
+            # write recipe
+            self._dep_manager.add("req", self._proj_name, succeeded=bool(process.returncode == 0))
         if process.returncode:
             # Build failed
             # Lock is still released as no one is writing to that directory
@@ -197,7 +200,3 @@ class Project:
                 f" {process.returncode}."
             )
             raise BuildError(message)
-        # process.returncode == 0, succeeded
-        if not self._settings["dryrun"]:
-            # write recipe
-            self._dep_manager.add("req", self._proj_name)

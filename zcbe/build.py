@@ -20,7 +20,7 @@ import asyncio
 import os
 import sys
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List, Literal, Optional
 
 import toml
 
@@ -44,7 +44,7 @@ class InfiniteSemaphore(asyncio.Semaphore):
         """Returns True if semaphore can not be acquired immediately."""
         return False
 
-    async def acquire(self) -> bool:
+    async def acquire(self) -> Literal[True]:
         """Acquire a semaphore."""
         return True
 
@@ -137,7 +137,6 @@ class Build:
                                override_prefix, override_triplet)
         self._check_config()
         self._set_global_env()
-        self._resolve_global_deps()
 
     def _parse_build_toml(self,
                           override_build_name: Optional[str] = None,
@@ -167,7 +166,7 @@ class Build:
         self._settings["environ"] = bdict["env"] if "env" in bdict else {}
         self._settings["deps"] = bdict["deps"] if "deps" in bdict else {}
 
-    def _resolve_global_deps(self) -> None:
+    async def resolve_global_deps(self) -> None:
         """Check global build-time dependencies."""
         if self._settings["deps"] is None:
             return
@@ -178,7 +177,7 @@ class Build:
                                      f"`deps.{key}'. Only \"build\" "
                                      "dependencies are allowed here")
             for item in self._settings["deps"]["build"]:
-                self._dep_manager.check("build", item)
+                await self._dep_manager.check("build", item)
 
     def _check_config(self) -> None:
         """Check provided configuration."""
@@ -284,7 +283,7 @@ class Build:
                 eprint(exception_maybe, title=None)
         return successful
 
-    def show_unbuilt(self) -> bool:
+    async def show_unbuilt(self) -> bool:
         """Show all unbuilt projects.
 
         Return False if everything has been built, otherwise True
@@ -293,7 +292,7 @@ class Build:
         mapping = toml.load(mapping_toml)["mapping"]
         ret = False
         for proj in mapping:
-            if not self._dep_manager.check("req", proj):
+            if not await self._dep_manager.check("req", proj):
                 ret = True
                 print(proj)
         return ret

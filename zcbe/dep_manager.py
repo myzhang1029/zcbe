@@ -16,7 +16,9 @@
 
 """ZCBE dependency tracker with persistence."""
 
+import asyncio
 import json
+import sys
 from os import PathLike
 from pathlib import Path
 from typing import Any, Dict
@@ -41,32 +43,34 @@ class DepManager:
                 json.dump({}, depfile)
         self._assume_yes = assume_yes
 
-    def add(self, deptype: str, depname: str) -> None:
+    def add(self, deptype: str, depname: str, succeeded: bool = True) -> None:
         """Mark a dependency as "built"."""
         with open(self.depfile_path, encoding="utf-8") as depfile:
             dep: Dict[str, Dict[str, bool]] = json.load(depfile)
         try:
-            dep[deptype][depname] = True
+            dep[deptype][depname] = succeeded
         except KeyError:
             dep[deptype] = {}
-            dep[deptype][depname] = True
+            dep[deptype][depname] = succeeded
         with open(self.depfile_path, "w", encoding="utf-8") as depfile:
             json.dump(dep, depfile)
 
-    @ staticmethod
-    def ask_build(depname: str) -> bool:
+    @staticmethod
+    async def ask_build(depname: str) -> bool:
         """Ask the user if a build tool has been installed."""
         while True:
-            resp = input(f"Is {depname} installed on your system? [y/n] ")
-            resp = resp.lower()
+            print(f"Is {depname} installed on your system? [y/n] ", end="")
+            sys.stdout.flush()
+            resp = await asyncio.get_event_loop().run_in_executor(None, sys.stdin.readline)
+            resp = resp.rstrip('\n').lower()
             if resp == "y":
                 return True
             if resp == "n":
-                input(f"Please install {depname} and press enter.")
-                return True
-            print("Unknown reply.")
+                print(f"Please install {depname}.")
+            else:
+                print("Unknown reply.")
 
-    def check(self, deptype: str, depname: str) -> bool:
+    async def check(self, deptype: str, depname: str) -> bool:
         """Check if a dependency has been marked as "built"."""
         with open(self.depfile_path, encoding="utf-8") as depfile:
             dep: Dict[str, Dict[str, bool]] = json.load(depfile)
@@ -74,7 +78,7 @@ class DepManager:
             return dep[deptype][depname]
         except KeyError:
             if deptype == "build" \
-                    and (self._assume_yes or self.ask_build(depname)):
+                    and (self._assume_yes or (await self.ask_build(depname))):
                 self.add("build", depname)
                 return True
             return False
