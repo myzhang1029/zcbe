@@ -100,7 +100,7 @@ class Build:
         override_triplet: an overriding value for the target triplet
     """
 
-    # pylint: disable=too-many-instance-attributes
+    # pylint: disable=too-many-instance-attributes,too-many-arguments
     def __init__(
             self,
             build_dir: str,

@@ -163,32 +163,40 @@ class Project:
         # Expand sh-style variable
         environ = {**os.environ, **
                    {k: expand(self._envdict[k]) for k in self._envdict}}
+        # Check if this project has already been built
+        # Skip if if_rebuild is set to True
+        if not self._settings["rebuild"] and \
+                await self._dep_manager.check("req", self._proj_name):
+            print(f"Requirement already satisfied: {self._proj_name}")
+            return
         # Make sure no two build processes run in the same project
         # and limit concurrent jobs
-        async with self.locked(), self._builder.job_semaphore:
-            # Check if this project has already been built
-            # Skip if if_rebuild is set to True
+        async with self._builder.job_semaphore:
+            # Check again in case someone finished it while we were waiting
+            # for the semaphore
             if not self._settings["rebuild"] and \
                     await self._dep_manager.check("req", self._proj_name):
                 print(f"Requirement already satisfied: {self._proj_name}")
                 return
-            print(f"Entering project {self._proj_name}")
-            # START #3 TODO
-            buildsh = self.locate_conf_toml().parent / "build.sh"
-            shpath = buildsh.as_posix()
-            os.chdir(self._proj_dir)
-            process = await asyncio.create_subprocess_exec(
-                "sh" if not self._settings["dryrun"] else "true",
-                "-e",
-                shpath,
-                stdout=await self._get_stdout(),
-                stderr=await self._get_stderr(),
-                env=environ,
-            )
-            # END #3 TODO
-            await process.wait()
-            print(f"Leaving project {self._proj_name} with status "
-                  f"{process.returncode}")
+            # Do not hold the lock while waiting for the semaphore
+            async with self.locked():
+                print(f"Entering project {self._proj_name}")
+                # START #3 TODO
+                buildsh = self.locate_conf_toml().parent / "build.sh"
+                shpath = buildsh.as_posix()
+                os.chdir(self._proj_dir)
+                process = await asyncio.create_subprocess_exec(
+                    "sh" if not self._settings["dryrun"] else "true",
+                    "-e",
+                    shpath,
+                    stdout=await self._get_stdout(),
+                    stderr=await self._get_stderr(),
+                    env=environ,
+                )
+                # END #3 TODO
+                await process.wait()
+                print(f"Leaving project {self._proj_name} with status "
+                      f"{process.returncode}")
         if not self._settings["dryrun"]:
             # write recipe
             self._dep_manager.add("req", self._proj_name, succeeded=bool(process.returncode == 0))
