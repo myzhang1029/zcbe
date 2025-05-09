@@ -1,6 +1,6 @@
 # zcbe.py - The Z Cross Build Environment
 #
-# Copyright 2019-2020 Zhang Maiyun
+# Copyright 2019-2025 Zhang Maiyun
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
