@@ -1,0 +1,46 @@
+{% set name = "zcbe" %}
+{% set version = "0.5.1" %}
+
+package:
+  name: {{ name|lower }}
+  version: {{ version }}
+
+source:
+  url: https://pypi.org/packages/source/{{ name[0] }}/{{ name }}/zcbe-{{ version }}.tar.gz
+  sha256: 84601f01bc12f6d0b4aa90c345d69a1c785e7dad9d2f874b0278ca793f79c0d2
+
+build:
+  skip: true  # [py<37]
+  entry_points:
+    - zcbe = zcbe:start
+  script: {{ PYTHON }} -m pip install . -vv --no-deps --no-build-isolation
+  number: 0
+
+requirements:
+  host:
+    - python
+    - pip
+    - setuptools
+  run:
+    - python
+    - toml
+    - typing_extensions  # [py<38]
+
+test:
+  imports:
+    - zcbe
+  commands:
+    - pip check
+    - zcbe --help
+  requires:
+    - pip
+
+about:
+  home: https://github.com/myzhang1029/zcbe
+  summary: The Z Cross Build Environment
+  license: Apache-2.0
+  license_file: LICENSE
+
+extra:
+  recipe-maintainers:
+    - myzhang1029
