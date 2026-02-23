@@ -21,7 +21,7 @@ from setuptools import setup
 
 setup(
     name="zcbe",
-    version="0.5.0",
+    version="0.5.1",
     description="The Z Cross Build Environment",
     # pylint: disable=consider-using-with
     long_description=open("README.md", encoding="utf-8").read(),
